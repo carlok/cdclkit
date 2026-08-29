@@ -292,7 +292,7 @@ class _Compiler(ast.NodeVisitor):
 
         if isinstance(node, ast.Call):
             self._fail(node, "function calls (inline the callee, or pass it "
-                             "through `helpers=`)")
+                             "the callee into it)")
 
         self._fail(node, type(node).__name__)
 

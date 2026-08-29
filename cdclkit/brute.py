@@ -112,6 +112,11 @@ def dpll(f: CNF, max_steps: int = 2_000_000) -> list[bool] | None:
         steps[0] += 1
         if steps[0] > max_steps:
             raise RuntimeError("DPLL step budget exhausted")
+        # An empty clause cannot be satisfied by anything. `simplify` catches
+        # the ones this search *creates*, but one present in the input reached
+        # the split below and indexed cs[0][0] on an empty list.
+        if any(not c for c in cs):
+            return None
         # unit propagation
         while True:
             unit = next((c[0] for c in cs if len(c) == 1), None)

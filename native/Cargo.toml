@@ -3,18 +3,28 @@ name = "cdclkit-native"
 version = "0.1.2"
 license = "Apache-2.0"
 edition = "2021"
+rust-version = "1.70"
 description = "Optional native engine for the cdclkit SAT toolkit"
 repository = "https://github.com/carlok/cdclkit"
 
 [lib]
 name = "cdclkit_native"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
+
+# `extension-module` is a feature rather than always-on so that `cargo test`
+# can link. With it unconditional, tests fail to find the Python symbols on
+# macOS and the crate's unit tests are unrunnable outside CI. maturin uses
+# default features, so builds are unaffected; tests run with
+# --no-default-features.
+[features]
+default = ["extension-module"]
+extension-module = ["pyo3/extension-module"]
 
 [dependencies]
 # The proof checker lives in its own crate. This used to be a byte-identical
 # copy of it, which is a divergence bug waiting to happen.
 dratify = "0.1.0"
-pyo3 = { version = "0.27", features = ["extension-module", "abi3-py310"] }
+pyo3 = { version = "0.27", features = ["abi3-py310"] }
 
 # Measured, not assumed.  These three are the settings that pay; two further
 # levers were tried and rejected (min of 5 runs over the 5 instances that take

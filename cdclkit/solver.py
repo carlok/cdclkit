@@ -145,7 +145,6 @@ class Config:
         "walk_min_conflicts",
         "first_reduce",
         "reduce_inc",
-        "special_inc",
         "glue_keep",
         "block_restart",
         "rnd_freq",
@@ -214,7 +213,6 @@ class Config:
         self.walk_min_conflicts = 5000
         self.first_reduce = 2000
         self.reduce_inc = 300
-        self.special_inc = 1000
         self.glue_keep = 2  # LBD <= glue_keep is never deleted
         self.block_restart = True
         self.rnd_freq = 0.0

@@ -103,12 +103,12 @@ class Encoder:
     are also used to *define* variables the caller may reference either way.
     """
 
-    #: Cap on :meth:`xor_direct`, which emits 2^(k-1) clauses.  16 inputs is
+    #: Cap on direct XOR expansion, which emits 2^(k-1) clauses.  16 inputs is
     #: 32768 clauses -- large but survivable, and the point of the direct form
     #: is to cross-check the chain on small arities, not to replace it.
     MAX_DIRECT_XOR_ARITY = 16
 
-    #: Cap on :meth:`assert_expr_expanded`, which enumerates 2^v rows over the
+    #: Cap on expanded truth-table assertion, which enumerates 2^v rows over the
     #: v variables an expression mentions.  12 is 4096 rows per conjunct.
     MAX_EXPAND_ARITY = 12
 

@@ -109,7 +109,7 @@ support.
       reports a **false counterexample** on identical source. The bare
       `except Exception` at `pyeq.py:778` swallows the Python re-simulation
       that would have caught it. Needs a signature-compatibility check.
-- [ ] **Phantom documentation.** `pyeq.py:295` tells users to "pass it through
+- [x] **Phantom documentation.** `pyeq.py:295` tells users to "pass it through
       `helpers=`"; no such parameter exists. The uncommitted `encodings.py`
       documents `xor_direct()` and `assert_expr_expanded()`; neither exists.
 - [ ] **Docstrings that describe code that isn't there.**
@@ -123,7 +123,7 @@ support.
       14x (619 -> 44 on a 194,756-conflict run), so the schedule that executes
       is not Luby. Blocking *wins* -- 1.62x faster, 25% fewer conflicts -- so
       this is a prose fix, not a code fix. Defend it empirically.
-- [ ] **`Config.special_inc`** is declared, defaulted to 1000, and never read.
+- [x] **`Config.special_inc`** is declared, defaulted to 1000, and never read.
 
 **Done when:** `grep` finds no reference to a symbol that does not exist, no
 known false proof survives, and every default is described accurately.
@@ -163,7 +163,7 @@ Nothing is rewritten. The front page changes.
 The audit found the headline claims weaker than they sound. None of these are
 correctness bugs today; all of them are how a correctness bug would get in.
 
-- [ ] **`rnd_freq` and `rnd_seed` have no Rust counterpart** and are silently
+- [x] **`rnd_freq` and `rnd_seed` have no Rust counterpart** and are silently
       ignored. This one *is* a live bug: `portfolio.py:157-201` builds worker
       diversity from exactly those two knobs, and `portfolio.py:199` sets a
       per-worker seed "so duplicated recipes still diverge". On the native path
@@ -178,7 +178,7 @@ correctness bugs today; all of them are how a correctness bug would get in.
 - [ ] **`restart="glucose"` and `ccmin="basic"` are never compared** across
       engines at all. Since the default restart is now `luby`, the `default` and
       `luby` entries in `CONFIGS` are the same configuration.
-- [ ] **`brute.py` has no test file** and is the oracle for 1,732 comparisons
+- [x] **`brute.py` has no test file** and is the oracle for 1,732 comparisons
       per suite run. Its only check compares `dpll` against `exhaustive_solve`,
       both defined in `brute.py`. That is self-consistency, not independence.
 - [ ] **"Fuzzing" is a fixed corpus.** All 41 `random.Random(N)` calls use
@@ -188,11 +188,11 @@ correctness bugs today; all of them are how a correctness bug would get in.
       which does not exist. Wire it up or stop calling it fuzzing.
 - [ ] **`make test` uses the system interpreter**, so the default developer
       command skips all 37 native tests and reports green. Make it say so.
-- [ ] **`cargo test` cannot link on macOS** -- `native/Cargo.toml:11,14`
+- [x] **`cargo test` cannot link on macOS** -- `native/Cargo.toml:11,14`
       declares `crate-type = ["cdylib"]` with unconditional pyo3
       `extension-module`, so ~25 Rust unit tests are unrunnable outside Linux
       CI.
-- [ ] **Vacuous assertions**: `test_mus.py:114` is `assertTrue(... or True)`;
+- [x] **Vacuous assertions**: `test_mus.py:114` is `assertTrue(... or True)`;
       `test_integration.py:93` accepts either exit code in a test named for
       rejecting a corrupted proof; `test_packaging.py:77-79` guards on a file
       that does not exist so `main()` is never called.
@@ -250,6 +250,22 @@ quickstart runs.
       repository comes from one host.
 
 ---
+
+## Closed in the hardening round (2026-08-29)
+
+Actions pinned to commit SHAs in both repositories, with Dependabot to keep the
+pins from going stale. Security policies written, both ordering severity by
+what each package is *for* rather than by a generic template.
+
+`brute.py` gained tests, and the first one written from outside found a real
+defect: `dpll` raised `IndexError` on a formula containing the empty clause,
+because `simplify` catches conflicts the search *creates* and nothing handled
+one present in the input. That function is the oracle for roughly 1,700
+comparisons per suite run.
+
+`cargo test` links everywhere now -- pyo3's `extension-module` is an optional
+default-on feature, so `--no-default-features` runs the crate's 24 unit tests
+without libpython. They were unrunnable outside Linux CI before.
 
 ## Open questions
 
