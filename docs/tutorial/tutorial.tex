@@ -296,7 +296,7 @@ dependencies of its own. Nothing third-party is pulled in.
 
 \section{Your first formula}
 
-\lstinputlisting[style=py]{code/ex1_hello.py}
+\lstinputlisting[style=py,firstline=4]{code/ex1_hello.py}
 
 \begin{lstlisting}[style=out]
 variables: 2  clauses: 3
@@ -312,7 +312,7 @@ Unpack it.
 
 Forbid all four combinations of two variables and nothing is left.
 
-\lstinputlisting[style=py]{code/ex2_unsat.py}
+\lstinputlisting[style=py,firstline=4]{code/ex2_unsat.py}
 
 \begin{lstlisting}[style=out]
 satisfiable: False
@@ -332,7 +332,7 @@ Real problems are not phrased as clauses. They are phrased as ``exactly one of
 these'', ``at most three of those''. The \texttt{Encoder} turns those into
 clauses for you.
 
-\lstinputlisting[style=py]{code/ex3_encoder.py}
+\lstinputlisting[style=py,firstline=4]{code/ex3_encoder.py}
 
 \begin{lstlisting}[style=out]
 2 colours: UNSAT   (6 vars, 12 clauses)
@@ -357,7 +357,7 @@ The encoder also offers \texttt{at\_most\_one}, \texttt{at\_least\_k},
 For most problems you should not touch literals at all. The modelling layer
 gives you finite-domain integers.
 
-\lstinputlisting[style=py]{code/ex4_model.py}
+\lstinputlisting[style=py,firstline=4]{code/ex4_model.py}
 
 \begin{lstlisting}[style=out]
 solved: True
@@ -380,7 +380,7 @@ constraint it does not offer, and to raw clauses almost never.
 When a model has no solution, the useful question is which constraints
 conflict. A \textbf{minimal unsatisfiable subset} answers it.
 
-\lstinputlisting[style=py]{code/ex5_core.py}
+\lstinputlisting[style=py,firstline=4]{code/ex5_core.py}
 
 \begin{lstlisting}[style=out]
 clause indices in the minimal unsatisfiable subset: [0, 1, 2]
@@ -445,7 +445,7 @@ with 1, which is why the encoding exists.
 
 \section{Checking a proof}
 
-\lstinputlisting[style=rs]{code/rust-demo/src/main.rs}
+\lstinputlisting[style=rs,firstline=4]{code/rust-demo/src/main.rs}
 
 \begin{lstlisting}[style=out]
 verified:      true

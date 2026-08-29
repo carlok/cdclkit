@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Carlo Perassi. Licensed under the Apache License 2.0.
+
 """Constraints people actually have, without writing clauses by hand.
 
 Colour a triangle with 2 colours. Each node needs exactly one colour, and

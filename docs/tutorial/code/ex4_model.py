@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Carlo Perassi. Licensed under the Apache License 2.0.
+
 """The modelling layer: integers and all-different, no clauses in sight.
 
 A 4x4 Sudoku. Each cell holds 1..4; rows, columns and 2x2 boxes are

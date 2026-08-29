@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Carlo Perassi. Licensed under the Apache License 2.0.
+
 """Why is it unsatisfiable? Ask for the part that matters.
 
 A minimal unsatisfiable subset (MUS) is a subset of the clauses that is still

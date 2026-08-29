@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 Carlo Perassi. Licensed under the Apache License 2.0.
+
 //! Checking a DRAT proof from Rust.
 //!
 //! Literals use a doubled index: variable `v` is `2v` when positive and
