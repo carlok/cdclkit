@@ -1,60 +1,125 @@
 \documentclass[11pt,a4paper]{article}
 
-\usepackage[margin=2.6cm]{geometry}
+\usepackage[margin=2.5cm,headheight=15pt]{geometry}
 \usepackage[T1]{fontenc}
-\usepackage{lmodern}
+\usepackage{XCharter}
+\usepackage[charter,vvarbb,scaled=1.03]{newtxmath}
+\usepackage[scaled=0.96]{inconsolata}
 \usepackage{microtype}
 \usepackage{listings}
 \usepackage{xcolor}
-\usepackage{amsmath,amssymb}
+\usepackage{amsmath}
+% amssymb and newtxmath both define \Bbbk
+\let\Bbbk\relax
+\usepackage{amssymb}
 \usepackage{booktabs}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,fit,backgrounds,calc}
-\usepackage[colorlinks=true,linkcolor=black,urlcolor=blue!60!black]{hyperref}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage[titles]{tocloft}
+\usepackage{enumitem}
 \usepackage{parskip}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=accent,pdfusetitle]{hyperref}
+\usepackage{url}
 
-\definecolor{codebg}{gray}{0.96}
-\definecolor{comment}{rgb}{0.35,0.45,0.35}
-\definecolor{keyword}{rgb}{0.30,0.20,0.60}
-\definecolor{strcol}{rgb}{0.55,0.25,0.15}
+% -- palette ---------------------------------------------------------
+\definecolor{accent}{HTML}{0B6E56}
+\definecolor{accentdark}{HTML}{064936}
+\definecolor{rule}{HTML}{C9C3B4}
+\definecolor{codebg}{HTML}{F7F6F2}
+\definecolor{outbg}{HTML}{EFEDE6}
+\definecolor{comment}{HTML}{5A6B5F}
+\definecolor{keyword}{HTML}{4A3480}
+\definecolor{strcol}{HTML}{8C4020}
 
-\lstdefinestyle{base}{
-  backgroundcolor=\color{codebg},
-  basicstyle=\ttfamily\small,
-  commentstyle=\color{comment}\itshape,
-  keywordstyle=\color{keyword}\bfseries,
-  stringstyle=\color{strcol},
-  breaklines=true,
-  showstringspaces=false,
-  frame=leftline,
-  framesep=6pt,
-  xleftmargin=10pt,
-  numbers=none,
-}
-% listings has no built-in Rust definition
+% -- headings --------------------------------------------------------
+\titleformat{\section}{\Large\bfseries\color{accentdark}}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\large\bfseries\color{accentdark}}{\thesubsection}{0.6em}{}
+\titlespacing*{\section}{0pt}{1.9ex plus 0.6ex}{0.9ex}
+\titlespacing*{\subsection}{0pt}{1.5ex plus 0.5ex}{0.7ex}
+
+% Parts are typeset by hand: article's \part wants its own page, which is a
+% lot of white space for a 19-page document.
+\newcommand{\tutpart}[2]{%
+  \clearpage
+  \phantomsection
+  \addcontentsline{toc}{part}{#1 --- #2}%
+  \markboth{#1}{}%
+  \begingroup
+    \color{accentdark}\rule{\linewidth}{1.1pt}\par\vspace{0.7ex}
+    {\sffamily\bfseries\large\color{accent} #1}\par\vspace{0.2ex}
+    {\Huge\bfseries\color{accentdark} #2}\par\vspace{0.9ex}
+    \color{rule}\rule{\linewidth}{0.5pt}
+  \endgroup
+  \vspace{1.4ex}\par}
+
+% -- running heads ---------------------------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{\color{rule}\hrule height 0.4pt}
+% article's \sectionmark uppercases and claims the left slot; we want the part
+% on the left and the section on the right, in ordinary case.
+\renewcommand{\sectionmark}[1]{\markright{\thesection\quad #1}}
+\fancyhead[L]{\footnotesize\sffamily\color{accentdark}\leftmark}
+\fancyhead[R]{\footnotesize\sffamily\color{accentdark}\rightmark}
+\fancyfoot[C]{\footnotesize\sffamily\color{accentdark}\thepage}
+\fancypagestyle{plain}{\fancyhf{}\renewcommand{\headrulewidth}{0pt}%
+  \renewcommand{\headrule}{}%
+  \fancyfoot[C]{\footnotesize\sffamily\color{accentdark}\thepage}}
+
+% -- contents --------------------------------------------------------
+\renewcommand{\cftpartfont}{\sffamily\bfseries\color{accentdark}}
+\renewcommand{\cftsecfont}{\normalfont}
+\setlength{\cftbeforesecskip}{2pt}
+\setlength{\cftbeforepartskip}{10pt}
+\renewcommand{\cftpartpagefont}{\bfseries}
+
+% -- listings --------------------------------------------------------
 \lstdefinelanguage{Rust}{
   keywords={as,break,const,continue,crate,dyn,else,enum,extern,false,fn,for,
             if,impl,in,let,loop,match,mod,move,mut,pub,ref,return,self,Self,
             static,struct,super,trait,true,type,unsafe,use,where,while},
   keywords=[2]{bool,char,i8,i16,i32,i64,u8,u16,u32,u64,usize,isize,f32,f64,
                str,String,Vec,Option,Result},
-  sensitive=true,
-  morecomment=[l]{//},
-  morecomment=[l]{//!},
-  morecomment=[s]{/*}{*/},
-  morestring=[b]",
+  sensitive=true, morecomment=[l]{//}, morecomment=[l]{//!},
+  morecomment=[s]{/*}{*/}, morestring=[b]",
+}
+\lstdefinestyle{base}{
+  backgroundcolor=\color{codebg},
+  basicstyle=\ttfamily\small,
+  commentstyle=\color{comment}\itshape,
+  keywordstyle=\color{keyword}\bfseries,
+  stringstyle=\color{strcol},
+  breaklines=true, showstringspaces=false,
+  frame=leftline, rulecolor=\color{accent}, framerule=1.4pt,
+  framesep=7pt, xleftmargin=11pt, aboveskip=1.2em, belowskip=1.2em,
+  numbers=none,
 }
 \lstdefinestyle{py}{style=base,language=Python}
 \lstdefinestyle{rs}{style=base,language=Rust,keywordstyle=[2]\color{keyword!70}}
-\lstdefinestyle{out}{style=base,basicstyle=\ttfamily\small\color{black!75}}
+\lstdefinestyle{out}{style=base,language={},backgroundcolor=\color{outbg},
+  basicstyle=\ttfamily\small\color{black!78},rulecolor=\color{rule},
+  framerule=1.4pt}
 \lstset{style=base}
 
-\newcommand{\pkg}[1]{\texttt{#1}}
+% A package name is always a link to where you get it.
+\newcommand{\pkg}[1]{\href{https://pypi.org/project/#1/}{\texttt{#1}}}
+\newcommand{\crate}[1]{\href{https://crates.io/crates/#1}{\texttt{#1}}}
+\newcommand{\repo}[1]{\href{https://github.com/carlok/#1}{\texttt{#1}}}
 
-\title{\textbf{SAT solving for Python and Rust programmers}\\[4pt]
-\large A tutorial for people who know boolean logic\\and have never used a solver}
-\author{}
-\date{}
+\title{%
+  \vspace{-1.5cm}
+  {\color{accent}\rule{\linewidth}{1.2pt}}\\[0.6em]
+  \bfseries SAT solving for Python and Rust programmers\\[0.35em]
+  {\normalfont\large\color{black!62}
+   A tutorial for people who know boolean logic\\
+   and have never used a solver}\\[0.5em]
+  {\color{rule}\rule{\linewidth}{0.5pt}}}
+\author{Carlo Perassi}
+\date{\small For \href{https://pypi.org/project/cdclkit/}{cdclkit}~0.1.2 and
+      \href{https://pypi.org/project/dratify/}{dratify}~0.1.2}
 
 \begin{document}
 \maketitle
@@ -76,10 +141,9 @@ printed.
 \tableofcontents
 \newpage
 
-\part*{Part I --- The theory you need, and no more}
-\addcontentsline{toc}{section}{Part I --- The theory you need, and no more}
+\tutpart{Part I}{The theory you need, and no more}
 
-\section{The problem}
+\section{What a SAT problem is}
 
 A \emph{SAT problem} asks one question:
 
@@ -297,15 +361,13 @@ accumulate, and each one prunes a chunk of the search space. That learning step
 is what separates CDCL from brute force, and it is why solvers handle problems
 with millions of variables.
 
-\newpage
-\part*{Part II --- One problem, end to end}
-\addcontentsline{toc}{section}{Part II --- One problem, end to end}
+\tutpart{Part II}{One problem, end to end}
 
 Before the details, the whole journey once. Same problem, both languages, and
 every file that passes between them printed in full --- they are small enough
 to read, which is the point of choosing a small problem.
 
-\section{The problem}
+\section{The timetable}
 
 Three exams: Algebra, Biology, Chemistry. Some students are enrolled in both
 Algebra and Biology, some in both Biology and Chemistry, some in both Algebra
@@ -466,9 +528,7 @@ The parsing is a third of that file, and it is the honest cost of a text
 interchange format. What you get for it: the program deciding whether to
 believe the answer shares nothing with the program that produced it.
 
-\newpage
-\part*{Part III --- Python}
-\addcontentsline{toc}{section}{Part III --- Python}
+\tutpart{Part III}{Python}
 
 \section{Installing}
 
@@ -589,9 +649,7 @@ replayed. Exit codes follow the SAT competition convention --- \texttt{10} for
 satisfiable, \texttt{20} for unsatisfiable --- which is unusual enough to
 surprise a shell script expecting \texttt{0}.
 
-\newpage
-\part*{Part IV --- Rust}
-\addcontentsline{toc}{section}{Part IV --- Rust}
+\tutpart{Part IV}{Rust}
 
 \section{What the Rust crate is for}
 
@@ -607,6 +665,9 @@ properly.
 \begin{lstlisting}[style=base]
 cargo add dratify
 \end{lstlisting}
+
+\noindent The crate is \crate{dratify}; the source for both it and the Python
+package is \repo{dratify}.
 
 \section{Literals}
 
@@ -687,16 +748,24 @@ then runs each.
 \section*{Where to go next}
 \addcontentsline{toc}{section}{Where to go next}
 
-\begin{itemize}
-\item \texttt{examples/} in the \pkg{cdclkit} repository --- Sudoku with a
+\begin{itemize}[leftmargin=1.3em]
+\item \href{https://github.com/carlok/cdclkit/tree/main/examples}%
+      {\texttt{examples/}} in the \repo{cdclkit} repository --- Sudoku with a
       uniqueness proof, the zebra puzzle, graph colouring, bounded model
       checking, circuit equivalence.
-\item \texttt{docs/ALGORITHMS.md} --- the mathematics, from resolution through
-      first-UIP learning, LBD, DRAT and preprocessing, including a section on
-      what is deliberately absent.
+\item \href{https://github.com/carlok/cdclkit/blob/main/docs/ALGORITHMS.md}%
+      {\texttt{docs/ALGORITHMS.md}} --- the mathematics, from resolution
+      through first-UIP learning, LBD, DRAT and preprocessing, including a
+      section on what is deliberately absent.
+\item \href{https://github.com/carlok/cdclkit/blob/main/BENCHMARKS.md}%
+      {\texttt{BENCHMARKS.md}} --- how fast this is, and the caveats that
+      belong with every number in it.
 \item For industrial-scale problems, \pkg{python-sat} bundles kissat and
       CaDiCaL as binary wheels, and is much faster. What it does not do is
       check the proofs it can emit --- see Section \ref{sec:why}.
+\item \href{https://github.com/marijnheule/drat-trim}{\texttt{drat-trim}} is
+      the reference DRAT checker, in C. \pkg{dratify} agrees with it on every
+      proof they have both been given.
 \end{itemize}
 
 \end{document}
