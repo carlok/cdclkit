@@ -1,6 +1,6 @@
 [package]
 name = "cdclkit-native"
-version = "0.1.0"
+version = "0.1.1"
 license = "Apache-2.0"
 edition = "2021"
 description = "Optional native engine for the cdclkit SAT toolkit"
@@ -14,7 +14,7 @@ crate-type = ["cdylib"]
 # The proof checker lives in its own crate. This used to be a byte-identical
 # copy of it, which is a divergence bug waiting to happen.
 dratify = "0.1.0"
-pyo3 = { version = "0.27", features = ["extension-module"] }
+pyo3 = { version = "0.27", features = ["extension-module", "abi3-py310"] }
 
 # Measured, not assumed.  These three are the settings that pay; two further
 # levers were tried and rejected (min of 5 runs over the 5 instances that take

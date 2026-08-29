@@ -4,9 +4,16 @@ name: release
 # OIDC identity token for this workflow and PyPI verifies it, so there is no
 # long-lived secret in this repository.
 #
-# Only the pure-Python wheel is published here. The Rust engine is an optional
-# accelerator and needs a per-platform build matrix, which is deliberately a
-# separate concern -- the dependency-free path is the one that must never break.
+Two distributions go out together: the pure-Python `cdclkit`, and the optional
+# `cdclkit-native` accelerator as per-platform wheels. They share a version,
+# which tests/test_packaging.py enforces.
+#
+# The native wheels are abi3 (pyo3 `abi3-py310`), so one wheel per platform
+# covers every Python from 3.10 up rather than one per (platform, version).
+# That turns a 20-wheel matrix into four.
+#
+# No Windows: it has never been tested, and the classifiers say so rather than
+# implying support.
 
 on:
   push:
@@ -44,3 +51,59 @@ jobs:
           name: dist
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
+
+  # -- the optional Rust accelerator -------------------------------------
+  wheels:
+    name: wheels (${{ matrix.target }} on ${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: x86_64 }
+          - { os: ubuntu-latest, target: aarch64 }
+          - { os: macos-14,      target: aarch64 }
+          - { os: macos-13,      target: x86_64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist --manifest-path native/Cargo.toml
+          manylinux: auto
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}-${{ matrix.target }}
+          path: dist/
+
+  native-sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist --manifest-path native/Cargo.toml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-sdist
+          path: dist/
+
+  pypi-native:
+    needs: [wheels, native-sdist]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true

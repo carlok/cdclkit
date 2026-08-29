@@ -7,3 +7,10 @@ native/target/
 .venv/
 bench/instances/
 experiments/*/.venv/
+
+# The paper. Kept on disk, out of the repo: it documents a project that no
+# longer exists -- it argues solver-first when this is checker-first, leads with
+# the kissat number that BENCHMARKS.md deliberately buries, and its prose was
+# mangled by the mechanical rename. The publishable result here is the pyeq
+# experiment, which is a different paper.
+tex/

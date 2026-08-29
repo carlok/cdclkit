@@ -7,14 +7,13 @@ name = "cdclkit-native"
 description = "Optional Rust engine for the cdclkit SAT toolkit"
 requires-python = ">=3.10"
 authors = [{ name = "Carlo Perassi" }]
-# a symlink to the root COPYRIGHT: maturin refuses a path outside the crate
-# root, and a second copy of the text is a second thing to drift
-license-files = ["COPYRIGHT"]
+license = "Apache-2.0"
+# a symlink to the root LICENSE: maturin refuses a path outside the crate root,
+# and a second copy of the text is a second thing to drift
+license-files = ["LICENSE"]
 
-# No licence is granted; see ../COPYRIGHT and ../docs/LICENSING.md.
 classifiers = [
     "Development Status :: 4 - Beta",
-    "License :: Other/Proprietary License",
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS :: MacOS X",
     "Programming Language :: Rust",
