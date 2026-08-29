@@ -19,6 +19,15 @@
 \usepackage{fancyhdr}
 \usepackage[titles]{tocloft}
 \usepackage{enumitem}
+\usepackage{pifont}
+% Emoji do not render under pdflatex, so the fit lists use dingbats in the
+% same colours. Same scannability, no missing glyphs.
+\definecolor{yes}{HTML}{0B6E56}
+\definecolor{no}{HTML}{A03020}
+\newcommand{\yes}{\textcolor{yes}{\ding{51}}}
+\newcommand{\nope}{\textcolor{no}{\ding{55}}}
+\newlist{fit}{itemize}{1}
+\setlist[fit]{leftmargin=1.6em,itemsep=2pt,topsep=4pt,label=}
 \usepackage{parskip}
 \usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=accent,pdfusetitle]{hyperref}
 \usepackage{url}
@@ -168,6 +177,43 @@ algorithm.
 
 Two different answers, because the two packages are for different jobs. Read
 the one that applies to you.
+
+\subsection*{Is this for you?}
+
+\begin{minipage}[t]{0.485\linewidth}
+\textbf{\pkg{cdclkit}}, if you
+\begin{fit}
+\item[\yes] have constraints and need any assignment satisfying them
+\item[\yes] need to know \emph{why} something is infeasible
+\item[\yes] need to verify an ``impossible'' answer
+\item[\yes] want to read the solver, or teach how it works
+\end{fit}
+\vspace{0.6ex}
+Not, if you
+\begin{fit}
+\item[\nope] need raw speed on industrial instances
+\item[\nope] are optimising over real numbers
+\item[\nope] need Windows
+\end{fit}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.485\linewidth}
+\textbf{\pkg{dratify}}, if you
+\begin{fit}
+\item[\yes] have a DRAT or DRUP proof to verify
+\item[\yes] are about to act on ``no solution exists''
+\item[\yes] want it in-process, Python or Rust
+\item[\yes] want two implementations that agree
+\end{fit}
+\vspace{0.6ex}
+Not, if you
+\begin{fit}
+\item[\nope] want to solve rather than check
+\item[\nope] never look at UNSAT answers
+\end{fit}
+\end{minipage}
+
+\vspace{1.2ex}
+The rest of this section is the same answer at length.
 
 \subsection*{If you write Python: \pkg{cdclkit}}
 

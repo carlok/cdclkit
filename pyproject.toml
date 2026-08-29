@@ -47,3 +47,8 @@ Source = "https://github.com/carlok/cdclkit"
 
 [tool.setuptools.packages.find]
 include = ["cdclkit*"]
+
+# PEP 561. Without this marker the type hints already in the source are
+# invisible to mypy, pyright and anything else that reads stubs.
+[tool.setuptools.package-data]
+cdclkit = ["py.typed"]

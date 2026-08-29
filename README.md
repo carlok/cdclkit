@@ -32,6 +32,22 @@ code with the solver that wrote it.
 
 ## Why you would want this
 
+**Use this if:**
+
+- ✅ You have constraints and need any assignment satisfying all of them
+- ✅ You need to know **why** something is infeasible, not just that it is
+- ✅ You need to *verify* an "impossible" answer rather than trust it
+- ✅ You want to read the solver, or teach how CDCL works
+- ✅ You want zero third-party dependencies
+
+**Use something else if:**
+
+- ❌ You need raw speed on industrial instances → [PySAT](https://pypi.org/project/python-sat/) ships kissat and CaDiCaL
+- ❌ Your problem is numeric optimisation over real numbers → an LP or MIP solver
+- ❌ You need Windows → never tested here, and the classifiers say so
+
+---
+
 You have a pile of constraints and need any assignment satisfying all of them:
 
 - **Rostering and scheduling** — six nurses, three shifts, nobody works two
@@ -158,6 +174,11 @@ otherwise.
   section on what is deliberately absent.
 - [docs/ROADMAP.md](docs/ROADMAP.md) — what is planned, in sprints.
 - [docs/RELEASING.md](docs/RELEASING.md) — the release checklist.
+
+## Generating code against this?
+
+[AGENTS.md](AGENTS.md) lists the API's sharp edges — the mistakes that have
+actually been made, not hypothetical ones. Worth reading before writing a line.
 
 ## Licence
 
