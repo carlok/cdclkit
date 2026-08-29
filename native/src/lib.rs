@@ -36,6 +36,23 @@
 //! The cost is that clause deletion cannot be left to a garbage collector:
 //! Sprint 2 will need explicit compaction with offset relocation.
 
+// Three clippy lints are allowed deliberately rather than fixed.
+//
+// `needless_range_loop`: this engine is a line-by-line port of the Python one
+// and is required to be bit-exact with it -- identical conflicts, decisions and
+// propagations. Index-based loops are what make that correspondence auditable
+// side by side; rewriting them as iterator chains would obscure the one
+// property that matters most here.
+//
+// `manual_is_multiple_of`: `u64::is_multiple_of` is recent, and adopting it
+// would raise the minimum supported Rust version for a cosmetic gain.
+//
+// `type_complexity`: the pyo3 boundary returns wide tuples because that is what
+// the Python side unpacks. Naming them would move the complexity, not remove it.
+#![allow(clippy::needless_range_loop)]
+#![allow(clippy::manual_is_multiple_of)]
+#![allow(clippy::type_complexity)]
+
 pub mod portfolio;
 pub mod preprocess;
 pub mod solver;
@@ -100,7 +117,7 @@ pub fn mk_lit(v: u32, negated: bool) -> Lit {
 
 #[inline]
 pub fn from_dimacs(d: i32) -> Lit {
-    let v = (d.unsigned_abs() - 1) as u32;
+    let v = d.unsigned_abs() - 1;
     (v << 1) | ((d < 0) as u32)
 }
 

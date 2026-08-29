@@ -1464,10 +1464,11 @@ impl Solver {
                     self.cancel_until(0);
                     continue;
                 }
-                if self.decision_level() == 0 && self.stats.propagations > self.simp_props {
-                    if !self.simplify() {
-                        return Some(false);
-                    }
+                if self.decision_level() == 0
+                    && self.stats.propagations > self.simp_props
+                    && !self.simplify()
+                {
+                    return Some(false);
                 }
                 let lit = self.pick_branch_lit();
                 if lit < 0 {
