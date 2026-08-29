@@ -60,7 +60,12 @@ jobs:
         with:
           components: clippy
       - run: pip install dratify maturin
-      - run: cd native && maturin develop --release
+      # `maturin develop` needs an active virtualenv, which setup-python does
+      # not give you. Build the wheel and install it instead -- which is also
+      # closer to what a user does.
+      - run: cd native && maturin build --release --out dist
+      - run: pip install native/dist/*.whl
+      - run: python -c "import cdclkit_native; print('native engine loaded')"
       # the same suite against the Rust engine: it is bit-exact with Python,
       # and this is what would catch a divergence
       - run: python -m unittest discover -s tests
