@@ -26,22 +26,47 @@ artefacts (`.aux`, `.log`, `.toc`, the Rust `target/`) are gitignored.
 
 Not started. Recorded here so the requirement is not lost.
 
-The target is a proper site -- something like the Lean Frontier pages -- served
-under `carlok.github.io`, not a PDF with a download link and not the output of
-a LaTeX-to-HTML converter. `tex4ht`, `pandoc` and `latex2html` all produce
-pages that look converted, and that is the thing to avoid.
+The target is a static site under `carlok.github.io`, built to match
+**LeanFrontier** (`carlok/LeanFrontier`, `docs/website/`), not the output of a
+LaTeX-to-HTML converter. `tex4ht`, `pandoc` and `latex2html` all produce pages
+that look converted, which is the thing being avoided.
 
-So: author the HTML, do not translate the PDF. What makes that cheap is that
-the content is already shaped for it.
+### What that site actually is
 
-- **Structure already fits.** Theory, then one page per language. Roughly one
-  HTML page per part, or per section if they run long.
-- **Code snippets come from `code/`,** the same files `\lstinputlisting` reads
-  here. Highlight them at build time (Pygments, Shiki, highlight.js) so the
-  site cannot drift from what runs, exactly as the PDF cannot today.
-- **Math needs real rendering** -- KaTeX or MathJax. There is not much of it
-  (CNF notation, the RUP rule), but images of equations would look as
-  converted as everything else.
-- `run_examples.sh` stays the check that every snippet on the site executes.
+Studied rather than assumed. `docs/website/` is `index.html`, one
+`assets/site.css` (168 lines), a favicon, and nine field notes. Notable:
 
-The PDF stays. It is the offline artefact; the site is the one people land on.
+- **Zero JavaScript.** Not one `<script>` tag on any page.
+- **A warm paper palette, not a dev-tool dark theme.** `--paper: #f4f1e8`,
+  `--ink: #17221e`, `--accent: #0c6d56`. Georgia for display, Helvetica for
+  body, SFMono for code -- system fonts only, nothing fetched.
+- **Code blocks invert:** dark `--ink` background with light text, inside an
+  otherwise light page, `overflow-x: auto`.
+- **Syntax highlighting is hand-written spans** (`.lean-keyword`,
+  `.lean-declaration`, `.lean-module`), not a JS library.
+- **Accessibility is deliberate:** skip link, `aria-labelledby` on every
+  section, `:focus-visible` outlines, a `prefers-reduced-motion` block.
+- Layout is `width: min(1120px, calc(100% - 3rem))`, centred; pages are
+  `<article class="note">` with a `note-header` and plain `<section>`s.
+
+### How to build ours
+
+Jinja2 templates rendered to static HTML at build time. The three things that
+need care:
+
+1. **Snippets come from `code/`,** the same files `\lstinputlisting` reads for
+   the PDF. Highlight with **Pygments at build time** -- that produces the same
+   kind of pre-highlighted spans LeanFrontier writes by hand, with no runtime
+   JS and no drift from what runs.
+2. **Math needs rendering without breaking the zero-JS property.** There is
+   little of it (CNF notation, the RUP rule), so render with the **KaTeX CLI at
+   build time** into static HTML plus its stylesheet. Loading KaTeX in the
+   browser would be the easy path and would be the first `<script>` on the
+   site.
+3. **`run_examples.sh` stays the gate.** If a snippet on the site does not run,
+   the build should fail, exactly as the PDF cannot currently drift.
+
+Reuse `site.css` as the starting point and add what Python and Rust need that
+Lean did not.
+
+The PDF stays. It is the offline artefact; the site is where people land.
