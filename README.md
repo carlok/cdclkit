@@ -111,6 +111,9 @@ self-checking implementation you can audit.
 
 ## Documentation
 
+- [docs/tutorial/](docs/tutorial/) — **start here if you are new to SAT.** A
+  tutorial for a working programmer who knows boolean logic and has never used
+  a solver: the theory you need, then Python, then Rust. Every example runs.
 - [docs/ALGORITHMS.md](docs/ALGORITHMS.md) — the mathematics, from resolution
   through first-UIP, LBD, DRAT, encodings and preprocessing, including a
   section on what is deliberately absent.
