@@ -49,8 +49,8 @@ def solve_with_proof(f: CNF):
 def fuzz_seed(base: int) -> int:
     """Seed base for a fuzz family, overridable to re-run a reported failure.
 
-    ``CDCLKIT_FUZZ_SEED=12345 python3 -m unittest tests.fuzz_dimacs`` shifts every
-    family by the same offset, which is how you widen the search after a clean
+    ``CDCLKIT_FUZZ_SEED=12345 python3 -m unittest discover -s tests`` shifts
+    every seeded family by the same offset, which is how you widen the search after a clean
     run without editing the source.
     """
     return base + int(os.environ.get("CDCLKIT_FUZZ_SEED", "0"))

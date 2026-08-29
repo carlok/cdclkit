@@ -19,6 +19,8 @@ import itertools
 import random
 import unittest
 
+from tests.util import fuzz_seed
+
 from dratify.cnf import CNF
 from cdclkit.encodings import Encoder, Optimiser, Totalizer, optimise
 from dratify.lits import mk_lit, neg
@@ -210,7 +212,7 @@ class TestArcConsistency(unittest.TestCase):
 
 class TestPseudoBoolean(unittest.TestCase):
     def test_random_pb_constraints(self):
-        rng = random.Random(11)
+        rng = random.Random(fuzz_seed(11))
         for _ in range(20):
             n = rng.randint(1, 5)
             w = [rng.choice([-4, -2, -1, 1, 2, 3, 5]) for _ in range(n)]
@@ -285,7 +287,7 @@ class TestTseitin(unittest.TestCase):
         )
 
     def test_random_expression_trees(self):
-        rng = random.Random(5)
+        rng = random.Random(fuzz_seed(5))
         for _ in range(40):
             n = rng.randint(1, 4)
             f = CNF()

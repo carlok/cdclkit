@@ -21,7 +21,7 @@ from dratify.lits import mk_lit, neg
 from dratify.proof import DRATChecker, ProofWriter, check_proof, parse_proof
 from cdclkit import native
 from cdclkit.solver import Solver
-from tests.util import random_cnf, solve_with_proof
+from tests.util import random_cnf, solve_with_proof, fuzz_seed
 
 
 class TestProofPositive(unittest.TestCase):
@@ -39,7 +39,7 @@ class TestProofPositive(unittest.TestCase):
                 self.assertGreater(res.rup_steps, 0)
 
     def test_random_unsat_proofs_verify(self):
-        rng = random.Random(4242)
+        rng = random.Random(fuzz_seed(4242))
         checked = 0
         for _ in range(120):
             f = random_cnf(rng, max_vars=11, ratio=5.0)
@@ -109,7 +109,7 @@ class TestProofRejection(unittest.TestCase):
         """A random small clause, injected before the solver's first learnt
         clause, is checked against the bare input formula -- the hardest place
         to smuggle one through."""
-        rng = random.Random(3)
+        rng = random.Random(fuzz_seed(3))
         rejected = 0
         trials = 60
         for _ in range(trials):
@@ -135,14 +135,21 @@ class TestProofRejection(unittest.TestCase):
         without entailment, so RAT is disabled here to make the criterion
         exact).
         """
-        rng = random.Random(3)
+        rng = random.Random(fuzz_seed(3))
         accepted = 0
+        # A clause already in the formula is trivially RUP -- assuming its
+        # negation falsifies it immediately -- so including one guarantees the
+        # guard below tests the checker rather than the luck of the draw. A
+        # shifted fuzz seed once produced 60 consecutive rejections and turned
+        # this test red for a reason that had nothing to do with the code.
+        candidates = [list(self.formula.clauses[0])]
         for _ in range(60):
             k = rng.randint(1, 3)
-            clause = [
+            candidates.append([
                 mk_lit(v, rng.random() < 0.5)
                 for v in rng.sample(range(self.formula.nvars), k)
-            ]
+            ])
+        for clause in candidates:
             checker = DRATChecker(self.formula, check_rat=False)
             if not checker.check_step("a", clause):
                 continue
@@ -156,7 +163,9 @@ class TestProofRejection(unittest.TestCase):
                 f"checker accepted {clause}, but F and not-C is satisfiable: "
                 "the clause is not entailed",
             )
-        self.assertGreater(accepted, 0, "the sample never exercised acceptance")
+        self.assertGreater(accepted, 0,
+                           "not even the formula's own clause was accepted, "
+                           "which means RUP checking is broken")
 
     def test_flipped_literal_is_rejected(self):
         """Flipping the sign of a literal in a learnt clause.
@@ -167,7 +176,7 @@ class TestProofRejection(unittest.TestCase):
         genuinely implied. `test_every_acceptance_is_sound` is what pins down
         that the survivors are real.
         """
-        rng = random.Random(11)
+        rng = random.Random(fuzz_seed(11))
         rejected = attempted = 0
         for _ in range(60):
             idx = rng.randrange(0, len(self.steps))
@@ -191,7 +200,7 @@ class TestProofRejection(unittest.TestCase):
     def test_dropped_literal_is_rejected(self):
         """Removing a literal makes the clause strictly stronger, so unless the
         literal was redundant the step stops following."""
-        rng = random.Random(19)
+        rng = random.Random(fuzz_seed(19))
         rejected = attempted = 0
         for _ in range(60):
             idx = rng.randrange(0, len(self.steps))
@@ -281,7 +290,7 @@ class TestBothCheckersAgree(unittest.TestCase):
         self.assertFalse(sat)
         steps = list(proof.steps)
 
-        rng = random.Random(2024)
+        rng = random.Random(fuzz_seed(2024))
         rejected = 0
         for _ in range(40):
             kind = rng.choice(("insert", "flip", "drop", "truncate"))
@@ -311,7 +320,7 @@ class TestBothCheckersAgree(unittest.TestCase):
 
     @unittest.skipUnless(native.available(), "native checker not built")
     def test_agree_on_random_instances(self):
-        rng = random.Random(808)
+        rng = random.Random(fuzz_seed(808))
         checked = 0
         for _ in range(60):
             f = random_cnf(rng, max_vars=11, ratio=5.0)

@@ -170,18 +170,18 @@ correctness bugs today; all of them are how a correctness bug would get in.
       they are dropped, so duplicate recipes become bit-identical duplicate
       workers. Measured divergence: Python 4,987 conflicts vs Rust 3,171.
       Either implement them in Rust or make the native path reject them.
-- [ ] **Bit-exactness tests cannot reach most of the solver.** Instances peak at
+- [x] **Bit-exactness tests cannot reach most of the solver.** Instances peak at
       748 conflicts, but `first_reduce=2000`, `walk_min_conflicts=5000` and
       `block_restart` needs 10,000. So `reduce_db`, probSAT rephasing and
       restart blocking are **never** compared between engines. One long
       instance fixes this.
-- [ ] **`restart="glucose"` and `ccmin="basic"` are never compared** across
+- [x] **`restart="glucose"` and `ccmin="basic"` are never compared** across
       engines at all. Since the default restart is now `luby`, the `default` and
       `luby` entries in `CONFIGS` are the same configuration.
 - [x] **`brute.py` has no test file** and is the oracle for 1,732 comparisons
       per suite run. Its only check compares `dpll` against `exhaustive_solve`,
       both defined in `brute.py`. That is self-consistency, not independence.
-- [ ] **"Fuzzing" is a fixed corpus.** All 41 `random.Random(N)` calls use
+- [x] **"Fuzzing" is a fixed corpus.** All 41 `random.Random(N)` calls use
       hardcoded literal seeds; mean 6 variables, max 59. `tests/util.py`
       already has `fuzz_seed()` / `fuzz_cases()` with `CDCLKIT_FUZZ_SEED` and
       **zero call sites**, plus a docstring pointing at `tests.fuzz_dimacs`,

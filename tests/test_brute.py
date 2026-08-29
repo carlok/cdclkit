@@ -19,6 +19,8 @@ from __future__ import annotations
 import itertools
 import unittest
 
+from tests.util import fuzz_seed
+
 from dratify import parse_dimacs
 from dratify.lits import from_dimacs
 from cdclkit.brute import (all_models, count_models, dpll, exhaustive_solve,
@@ -58,7 +60,7 @@ class TestAgainstIndependentEnumeration(unittest.TestCase):
 
     def test_random_instances_agree_with_enumeration(self):
         import random
-        rng = random.Random(20260829)
+        rng = random.Random(fuzz_seed(20260829))
         for _ in range(120):
             n = rng.randint(1, 6)
             f = parse_dimacs(f"p cnf {n} 0\n")

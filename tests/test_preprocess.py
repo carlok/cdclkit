@@ -23,12 +23,12 @@ from dratify.lits import mk_lit, neg
 from cdclkit.preprocess import Preprocessor, preprocess
 from dratify.proof import MemoryProof, check_proof
 from cdclkit.solver import Solver
-from tests.util import random_cnf
+from tests.util import random_cnf, fuzz_seed
 
 
 class TestPreprocessing(unittest.TestCase):
     def test_equisatisfiable_and_reconstructable(self):
-        rng = random.Random(23)
+        rng = random.Random(fuzz_seed(23))
         sat = unsat = 0
         for _ in range(200):
             f = random_cnf(rng, max_vars=10, ratio=5.0)
@@ -53,7 +53,7 @@ class TestPreprocessing(unittest.TestCase):
         self.assertGreater(unsat, 30)
 
     def test_end_to_end_proof_verifies_against_the_original(self):
-        rng = random.Random(77)
+        rng = random.Random(fuzz_seed(77))
         checked = 0
         for _ in range(120):
             f = random_cnf(rng, max_vars=10, ratio=5.5)
@@ -134,7 +134,7 @@ class TestPreprocessing(unittest.TestCase):
         self.assertTrue(f.is_satisfied_by(model))
 
     def test_bve_does_not_grow_the_formula(self):
-        rng = random.Random(5)
+        rng = random.Random(fuzz_seed(5))
         for _ in range(40):
             f = random_cnf(rng, max_vars=12, ratio=4.0)
             red, pre = preprocess(f)
@@ -148,7 +148,7 @@ class TestPreprocessing(unittest.TestCase):
 
     def test_preprocessing_is_idempotent_enough(self):
         """Running the preprocessor on its own output must not find much left."""
-        rng = random.Random(9)
+        rng = random.Random(fuzz_seed(9))
         for _ in range(20):
             f = random_cnf(rng, max_vars=12, ratio=4.0)
             red1, pre1 = preprocess(f)

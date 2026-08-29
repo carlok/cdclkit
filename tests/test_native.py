@@ -21,7 +21,7 @@ import unittest
 from cdclkit import native
 from dratify.cnf import CNF
 from dratify.lits import from_dimacs, is_neg, mk_lit, neg, to_dimacs, var_of
-from tests.util import random_cnf
+from tests.util import random_cnf, fuzz_seed
 
 HAVE = native.available()
 requires_native = unittest.skipUnless(HAVE, "native engine not built for this interpreter")
@@ -107,7 +107,7 @@ class TestArenaRoundTrip(unittest.TestCase):
         return db, accepted
 
     def test_round_trip_on_random_formulas(self):
-        rng = random.Random(17)
+        rng = random.Random(fuzz_seed(17))
         for _ in range(60):
             f = random_cnf(rng, max_vars=14, ratio=5.0)
             db, _ = self._load(f)
@@ -119,7 +119,7 @@ class TestArenaRoundTrip(unittest.TestCase):
         """Tautology rejection and duplicate collapsing must agree clause by
         clause, including the boolean each `add` returns."""
         n = native.require()
-        rng = random.Random(23)
+        rng = random.Random(fuzz_seed(23))
         for _ in range(200):
             nvars = rng.randint(1, 6)
             raw = [mk_lit(rng.randrange(nvars), rng.random() < 0.5)
@@ -133,7 +133,7 @@ class TestArenaRoundTrip(unittest.TestCase):
 
     def test_dimacs_path_agrees(self):
         n = native.require()
-        rng = random.Random(31)
+        rng = random.Random(fuzz_seed(31))
         for _ in range(100):
             nvars = rng.randint(1, 8)
             dimacs = [rng.choice([1, -1]) * rng.randint(1, nvars)

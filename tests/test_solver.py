@@ -11,12 +11,12 @@ from cdclkit.brute import exhaustive_solve
 from dratify.cnf import CNF
 from dratify.lits import mk_lit, neg
 from cdclkit.solver import Config, Solver
-from tests.util import random_cnf
+from tests.util import random_cnf, fuzz_seed
 
 
 class TestInvariants(unittest.TestCase):
     def test_watch_and_trail_invariants_hold_after_solving(self):
-        rng = random.Random(2)
+        rng = random.Random(fuzz_seed(2))
         for _ in range(60):
             f = random_cnf(rng, max_vars=14, ratio=4.3)
             s = Solver(f.nvars)
@@ -110,7 +110,7 @@ class TestInvariantsDuringSearch(unittest.TestCase):
         self.assertEqual(problems[:5], [])
 
     def test_invariants_hold_mid_search_on_random_instances(self):
-        rng = random.Random(3)
+        rng = random.Random(fuzz_seed(3))
         for _ in range(8):
             f = random_cnf(rng, max_vars=60, ratio=4.3)
             _, problems, _, _ = self._instrumented_solve(f)
@@ -148,7 +148,7 @@ class TestInvariantsDuringSearch(unittest.TestCase):
 
 class TestConfigurations(unittest.TestCase):
     def test_all_restart_policies_agree(self):
-        rng = random.Random(8)
+        rng = random.Random(fuzz_seed(8))
         for _ in range(40):
             f = random_cnf(rng, max_vars=11, ratio=4.4)
             ref = exhaustive_solve(f) is not None
@@ -162,7 +162,7 @@ class TestConfigurations(unittest.TestCase):
                     )
 
     def test_random_decisions_still_correct(self):
-        rng = random.Random(21)
+        rng = random.Random(fuzz_seed(21))
         for _ in range(30):
             f = random_cnf(rng, max_vars=10)
             ref = exhaustive_solve(f) is not None
@@ -214,7 +214,7 @@ class TestAssumptions(unittest.TestCase):
 
     def test_core_is_a_genuine_reason(self):
         """Every returned core must itself be unsatisfiable with the formula."""
-        rng = random.Random(77)
+        rng = random.Random(fuzz_seed(77))
         checked = 0
         for _ in range(80):
             f = random_cnf(rng, max_vars=9, ratio=3.0)
@@ -309,7 +309,7 @@ class TestRootSimplification(unittest.TestCase):
         f = CNF(40)
         for v in range(20):
             f.add([mk_lit(v)])
-        rng = random.Random(4)
+        rng = random.Random(fuzz_seed(4))
         for _ in range(200):
             vs = rng.sample(range(40), 3)
             f.add([mk_lit(v, rng.random() < 0.5) for v in vs])

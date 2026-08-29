@@ -26,7 +26,7 @@ from cdclkit.brute import exhaustive_solve
 from dratify.cnf import CNF
 from dratify.lits import mk_lit
 from cdclkit.solver import Config, Solver
-from tests.util import random_cnf
+from tests.util import random_cnf, fuzz_seed
 
 requires_native = unittest.skipUnless(
     native.available(), "native engine not built for this interpreter")
@@ -69,7 +69,7 @@ def native_solver(f: CNF, cfg: Config | None = None):
 @requires_native
 class TestTier1Correctness(unittest.TestCase):
     def test_verdicts_match_brute_force(self):
-        rng = random.Random(4242)
+        rng = random.Random(fuzz_seed(4242))
         sat = unsat = 0
         for _ in range(150):
             f = random_cnf(rng, max_vars=10, ratio=4.6)
@@ -158,6 +158,98 @@ class TestDefaultsAgree(unittest.TestCase):
         )
         self.assertEqual(py.stats.decisions, rs.decisions)
         self.assertEqual(py.stats.propagations, rs.propagations)
+
+
+def rand3(n: int, ratio: float, seed: int) -> CNF:
+    """Uniform random 3-SAT, generated here so the instance is reproducible."""
+    import random
+
+    rng = random.Random(seed)
+    f = CNF()
+    f.new_vars(n)
+    for _ in range(int(n * ratio)):
+        vs = rng.sample(range(1, n + 1), 3)
+        f.add_dimacs([v if rng.random() < 0.5 else -v for v in vs])
+    return f
+
+
+@requires_native
+class TestAgreementWhereItWasNeverChecked(unittest.TestCase):
+    """The engines must still agree once the expensive machinery switches on.
+
+    Every other bit-exactness test here runs instances that peak around 748
+    conflicts. The defaults turn clause-database reduction on at 2,000
+    conflicts, local-search rephasing at 5,000, and restart blocking at
+    10,000 -- so none of that code was ever compared between the two engines,
+    despite being the part where a divergence is most likely and hardest to
+    spot.
+
+    This instance crosses all three. It costs a couple of seconds, which is
+    the price of the claim meaning anything.
+    """
+
+    #: n=205 at ratio 4.35, seed 6: unsatisfiable, ~13,000 conflicts, and the
+    #: cheapest instance found that exercises reduction, rephasing and
+    #: blocking together.
+    N, RATIO, SEED = 205, 4.35, 6
+
+    @classmethod
+    def setUpClass(cls):
+        from cdclkit.solver import Solver as PySolver
+
+        cls.f = rand3(cls.N, cls.RATIO, cls.SEED)
+        d = Config()
+        py = PySolver(cls.f.nvars, config=d)
+        py.add_cnf(cls.f)
+        cls.py_sat = py.solve()
+        cls.py = py.stats
+
+        n = native.require()
+        rs = n.Solver(
+            cls.f.nvars, restart=d.restart, ccmin=d.ccmin,
+            phase_saving=d.phase_saving, init_phase=d.init_phase,
+            target_phase=d.target_phase, target_reset=d.target_reset,
+            walk_flips=d.walk_flips, walk_interval=d.walk_interval,
+            walk_patience=d.walk_patience,
+            walk_min_conflicts=d.walk_min_conflicts,
+            var_decay=d.var_decay, var_decay_max=d.var_decay_max,
+            cla_decay=d.cla_decay, luby_base=float(d.luby_base),
+            first_reduce=d.first_reduce, reduce_inc=d.reduce_inc,
+            glue_keep=d.glue_keep, block_restart=d.block_restart,
+            rnd_freq=d.rnd_freq, rnd_seed=d.rnd_seed)
+        for c in cls.f.clauses:
+            rs.add_clause(list(c))
+        cls.rs_sat = rs.solve(None)
+        cls.rs = rs
+
+    def test_the_instance_really_crosses_every_threshold(self):
+        """Otherwise this whole class could pass while testing nothing.
+
+        If a default moves and the instance stops reaching one of these, the
+        suite must say so rather than quietly going back to covering only the
+        easy path.
+        """
+        d = Config()
+        self.assertGreater(self.py.conflicts, 10_000)
+        self.assertGreater(self.py.conflicts, d.first_reduce)
+        self.assertGreater(self.py.conflicts, d.walk_min_conflicts)
+        self.assertGreater(self.py.reductions, 0, "clause reduction never ran")
+        self.assertGreater(self.py.walks, 0, "rephasing never ran")
+        self.assertGreater(self.py.blocked_restarts, 0,
+                           "restart blocking never engaged")
+
+    def test_verdicts_agree(self):
+        self.assertEqual(bool(self.py_sat), bool(self.rs_sat))
+
+    def test_every_exposed_counter_agrees(self):
+        for name in ("conflicts", "decisions", "propagations", "restarts",
+                     "learned", "minimized_lits", "reductions",
+                     "blocked_restarts", "learned_lits", "deleted",
+                     "max_trail"):
+            with self.subTest(counter=name):
+                self.assertEqual(getattr(self.py, name), getattr(self.rs, name),
+                                 f"{name} diverged once reduction, rephasing "
+                                 f"and blocking were all active")
 
 
 @requires_native
@@ -280,7 +372,7 @@ class TestTier2Faithfulness(unittest.TestCase):
                     self._compare(f, cfg, f"{label}/{name}")
 
     def test_identical_conflicts_on_random_instances(self):
-        rng = random.Random(31337)
+        rng = random.Random(fuzz_seed(31337))
         compared = 0
         for _ in range(40):
             f = random_cnf(rng, max_vars=14, ratio=4.4)
@@ -312,7 +404,7 @@ class TestTier2Faithfulness(unittest.TestCase):
         f = CNF(40)
         for v in range(20):
             f.add([mk_lit(v)])
-        rng = random.Random(4)
+        rng = random.Random(fuzz_seed(4))
         for _ in range(200):
             vs = rng.sample(range(40), 3)
             f.add([mk_lit(v, rng.random() < 0.5) for v in vs])
@@ -362,7 +454,7 @@ class TestProofEmission(unittest.TestCase):
     def test_random_unsat_proofs_verify(self):
         from dratify.proof import check_proof
 
-        rng = random.Random(99)
+        rng = random.Random(fuzz_seed(99))
         checked = 0
         for _ in range(80):
             f = random_cnf(rng, max_vars=10, ratio=5.2)

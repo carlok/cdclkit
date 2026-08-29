@@ -17,7 +17,7 @@ from cdclkit.brute import exhaustive_solve
 from dratify.cnf import CNF
 from dratify.lits import mk_lit
 from cdclkit.mus import MUSExtractor, mus, shrink_core
-from tests.util import random_cnf
+from tests.util import random_cnf, fuzz_seed
 
 METHODS = ("deletion", "quickxplain")
 
@@ -49,7 +49,7 @@ class TestMUS(unittest.TestCase):
             self.assertEqual(mus(f, method), [])
 
     def test_fuzz_against_brute_force(self):
-        rng = random.Random(9)
+        rng = random.Random(fuzz_seed(9))
         tested = 0
         for _ in range(150):
             f = random_cnf(rng, max_vars=8, ratio=5.0)
@@ -75,7 +75,7 @@ class TestMUS(unittest.TestCase):
         self.assertGreater(tested, 5)
 
     def test_verify_agrees_with_brute_force(self):
-        rng = random.Random(21)
+        rng = random.Random(fuzz_seed(21))
         for _ in range(60):
             f = random_cnf(rng, max_vars=7, ratio=5.5)
             if exhaustive_solve(f) is not None:
@@ -103,7 +103,7 @@ class TestMUS(unittest.TestCase):
         self.assertIn("satisfiable", msg)
 
     def test_core_is_a_superset_of_the_mus(self):
-        rng = random.Random(5)
+        rng = random.Random(fuzz_seed(5))
         for _ in range(40):
             f = random_cnf(rng, max_vars=8, ratio=5.0)
             if exhaustive_solve(f) is not None:

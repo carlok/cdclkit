@@ -36,7 +36,7 @@ from cdclkit.portfolio import (
 )
 from dratify.proof import check_proof
 from cdclkit.solver import Config, Solver
-from tests.util import random_cnf
+from tests.util import random_cnf, fuzz_seed
 
 
 def php(holes: int) -> CNF:
@@ -54,7 +54,7 @@ def php(holes: int) -> CNF:
 
 class TestAnswers(unittest.TestCase):
     def test_agrees_with_brute_force(self):
-        rng = random.Random(5)
+        rng = random.Random(fuzz_seed(5))
         sat = unsat = 0
         for _ in range(12):
             f = random_cnf(rng, max_vars=9, ratio=4.5)
@@ -151,7 +151,7 @@ class TestEngineSelection(unittest.TestCase):
     """The portfolio can run native workers; correctness must not depend on it."""
 
     def test_python_and_native_engines_agree(self):
-        rng = random.Random(13)
+        rng = random.Random(fuzz_seed(13))
         for _ in range(15):
             f = random_cnf(rng, max_vars=9, ratio=4.8)
             a = solve_portfolio(f, jobs=2, engine="python")
@@ -219,7 +219,7 @@ class TestEngineSelection(unittest.TestCase):
 
         if not native.available():
             self.skipTest("native engine not built")
-        rng = random.Random(77)
+        rng = random.Random(fuzz_seed(77))
         checked = 0
         for _ in range(20):
             f = random_cnf(rng, max_vars=10, ratio=4.5)
@@ -238,7 +238,7 @@ class TestEngineSelection(unittest.TestCase):
         """A preprocessing worker solves a *reduced* formula, so it has to
         reconstruct before returning -- otherwise it hands back a model with
         eliminated variables missing or wrong."""
-        rng = random.Random(21)
+        rng = random.Random(fuzz_seed(21))
         checked = 0
         for _ in range(15):
             f = random_cnf(rng, max_vars=10, ratio=4.5)

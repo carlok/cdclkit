@@ -20,7 +20,7 @@ from cdclkit.brute import exhaustive_solve
 from dratify.cnf import CNF
 from dratify.lits import mk_lit
 from cdclkit.pipeline import DEFAULT_PROBE, solve_adaptive
-from tests.util import random_cnf
+from tests.util import random_cnf, fuzz_seed
 
 ENGINES = ["python"] + (["native"] if native.available() else [])
 
@@ -40,7 +40,7 @@ def php(holes: int) -> CNF:
 
 class TestCorrectness(unittest.TestCase):
     def test_matches_brute_force_under_every_policy(self):
-        rng = random.Random(11)
+        rng = random.Random(fuzz_seed(11))
         sat = unsat = 0
         for _ in range(60):
             f = random_cnf(rng, max_vars=9, ratio=4.8)
@@ -145,7 +145,7 @@ class TestPolicy(unittest.TestCase):
 @unittest.skipUnless(native.available(), "native engine not built")
 class TestNativePreprocessorAgreesWithPython(unittest.TestCase):
     def test_same_verdict_and_valid_models(self):
-        rng = random.Random(29)
+        rng = random.Random(fuzz_seed(29))
         for _ in range(40):
             f = random_cnf(rng, max_vars=11, ratio=5.0)
             py = solve_adaptive(f, engine="python", always_preprocess=True)

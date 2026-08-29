@@ -30,7 +30,7 @@ from dratify.lits import (
     var_of,
 )
 from cdclkit.solver import Solver, luby
-from tests.util import random_cnf
+from tests.util import random_cnf, fuzz_seed
 
 
 class TestLiterals(unittest.TestCase):
@@ -61,7 +61,7 @@ class TestLiterals(unittest.TestCase):
 
 class TestHeap(unittest.TestCase):
     def test_random_operation_sequences_preserve_invariants(self):
-        rng = random.Random(1)
+        rng = random.Random(fuzz_seed(1))
         n = 60
         act = [0.0] * n
         h = ActivityHeap(act, n)
@@ -157,7 +157,7 @@ class TestDimacs(unittest.TestCase):
 
 class TestReferenceSolvers(unittest.TestCase):
     def test_dpll_agrees_with_exhaustive(self):
-        rng = random.Random(99)
+        rng = random.Random(fuzz_seed(99))
         for _ in range(120):
             f = random_cnf(rng, max_vars=9)
             a = exhaustive_solve(f)
@@ -167,7 +167,7 @@ class TestReferenceSolvers(unittest.TestCase):
                 self.assertTrue(f.is_satisfied_by(b))
 
     def test_cdcl_agrees_with_both_references(self):
-        rng = random.Random(1234)
+        rng = random.Random(fuzz_seed(1234))
         sat = unsat = 0
         for _ in range(200):
             f = random_cnf(rng, max_vars=10)
@@ -185,7 +185,7 @@ class TestReferenceSolvers(unittest.TestCase):
         self.assertGreater(unsat, 20)
 
     def test_resolution_refutes_what_the_solver_refutes(self):
-        rng = random.Random(31337)
+        rng = random.Random(fuzz_seed(31337))
         tested = 0
         for _ in range(60):
             f = random_cnf(rng, max_vars=6, ratio=6.0)
@@ -197,7 +197,7 @@ class TestReferenceSolvers(unittest.TestCase):
         self.assertGreater(tested, 5)
 
     def test_model_counting_matches_enumeration(self):
-        rng = random.Random(5)
+        rng = random.Random(fuzz_seed(5))
         for _ in range(30):
             f = random_cnf(rng, max_vars=7)
             expected = count_models(f)
@@ -209,7 +209,7 @@ class TestReferenceSolvers(unittest.TestCase):
             self.assertEqual(got, expected, f.to_dimacs())
 
     def test_backbone_literals_are_really_implied(self):
-        rng = random.Random(17)
+        rng = random.Random(fuzz_seed(17))
         for _ in range(30):
             f = random_cnf(rng, max_vars=7)
             models = all_models(f)

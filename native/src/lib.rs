@@ -430,6 +430,13 @@ impl PySolver {
     #[getter] fn learned(&self) -> u64 { self.inner.stats.learned }
     #[getter] fn minimized_lits(&self) -> u64 { self.inner.stats.minimized_lits }
     #[getter] fn reductions(&self) -> u64 { self.inner.stats.reductions }
+    // These four were maintained and exposed nowhere, which meant the
+    // bit-exactness comparison could not see clause deletion or restart
+    // blocking at all.
+    #[getter] fn blocked_restarts(&self) -> u64 { self.inner.stats.blocked_restarts }
+    #[getter] fn learned_lits(&self) -> u64 { self.inner.stats.learned_lits }
+    #[getter] fn deleted(&self) -> u64 { self.inner.stats.deleted }
+    #[getter] fn max_trail(&self) -> usize { self.inner.stats.max_trail }
 
     fn check_watch_invariant(&self) -> Vec<String> {
         self.inner.check_watch_invariant()
