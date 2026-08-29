@@ -93,8 +93,13 @@ of what is being measured.
 
 If you need raw speed, install [PySAT](https://pypi.org/project/python-sat/):
 it ships kissat, CaDiCaL and Glucose as binary wheels on every platform. This
-project is not trying to beat them. It is trying to be a complete, readable,
-self-checking implementation you can audit.
+project is not trying to beat them, and will lose badly on large instances.
+
+The difference worth naming is narrower than "readable": PySAT can emit DRUP
+proofs and ships nothing to check them, and its solvers are third-party C++ in
+a compiled extension. Here the proof gets checked by default, by a package you
+can read. That matters if you are about to act on "no solution exists", and not
+otherwise.
 
 ## Honest limitations
 

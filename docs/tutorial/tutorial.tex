@@ -140,9 +140,24 @@ Two things you get that a hand-written search does not:
 profit subject to linear constraints over real numbers --- you want a
 linear-programming or MIP solver, not this. If you need raw throughput on
 industrial instances with millions of clauses, install \pkg{python-sat}, which
-ships kissat and CaDiCaL as binary wheels. \pkg{cdclkit} is a readable,
-self-checking, dependency-free implementation; it is not trying to win
-competitions, and it says so.
+ships kissat and CaDiCaL as binary wheels and will be far faster than anything
+here.
+
+\paragraph{So what is actually different?} Less than the previous paragraph
+might suggest, and it is worth being precise. \pkg{python-sat} installs just as
+easily --- wheels on every platform, one small pure-Python dependency --- so
+``no dependencies'' buys you very little on its own. Its Python layer is
+perfectly readable too.
+
+One difference is real and checkable: \pkg{python-sat} can \emph{emit} DRUP
+proofs (\texttt{with\_proof=True}) and ships \textbf{nothing to check them}. Its
+solvers are third-party C and C++ compiled into an extension module, so an
+UNSAT answer is something you take on trust unless you fetch a separate C tool.
+Here, checking is on by default and the checker is a package you can read.
+
+Whether that matters depends entirely on what you are doing. If you are
+searching for a solution, it does not. If you are about to act on ``no solution
+exists'', it is the only thing that does.
 
 \subsection*{If you write Rust: the \pkg{dratify} crate}
 
@@ -509,8 +524,8 @@ then runs each.
       first-UIP learning, LBD, DRAT and preprocessing, including a section on
       what is deliberately absent.
 \item For industrial-scale problems, \pkg{python-sat} bundles kissat and
-      CaDiCaL as binary wheels. This project is a readable, self-checking
-      implementation; it is not trying to win competitions.
+      CaDiCaL as binary wheels, and is much faster. What it does not do is
+      check the proofs it can emit --- see Section \ref{sec:why}.
 \end{itemize}
 
 \end{document}
