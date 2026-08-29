@@ -24,7 +24,7 @@ extension-module = ["pyo3/extension-module"]
 # The proof checker lives in its own crate. This used to be a byte-identical
 # copy of it, which is a divergence bug waiting to happen.
 dratify = "0.1.0"
-pyo3 = { version = "0.27", features = ["abi3-py310"] }
+pyo3 = { version = "0.29", features = ["abi3-py310"] }
 
 # Measured, not assumed.  These three are the settings that pay; two further
 # levers were tried and rejected (min of 5 runs over the 5 instances that take
