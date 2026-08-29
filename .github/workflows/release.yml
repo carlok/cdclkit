@@ -51,6 +51,12 @@ jobs:
           name: dist
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Re-running a release must not fail on the half that already
+          # succeeded. This job did exactly that: the wheels needed a rebuild
+          # after dropping macos-13, and the rerun died with 400 Bad Request
+          # because cdclkit itself was already published.
+          skip-existing: true
 
   # -- the optional Rust accelerator -------------------------------------
   wheels:
