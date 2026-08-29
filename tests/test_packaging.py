@@ -157,6 +157,39 @@ class TestPublicAPISurface(unittest.TestCase):
             self.assertNotIn(internal, cdclkit.__all__)
 
 
+class TestWorkflowsAreWellFormed(unittest.TestCase):
+    """Every top-level line in a workflow must be a known key or a comment.
+
+    A comment in release.yml lost its leading "# " during an edit. The result
+    was still valid YAML -- it simply became a mapping key -- so a
+    `yaml.safe_load` check passed it, and GitHub then refused the whole file
+    with "this run likely failed because of a workflow file issue". Zero jobs
+    ran, and the tag had to be deleted and re-cut.
+
+    Deliberately does not import yaml: the dependency-free test path is the one
+    that must never break, and this failure mode does not need a parser.
+    """
+
+    #: https://docs.github.com/actions/reference/workflow-syntax-for-github-actions
+    ALLOWED = {"name", "on", "permissions", "env", "defaults", "concurrency",
+               "jobs", "run-name"}
+
+    def test_no_stray_top_level_keys(self):
+        workflows = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
+        self.assertTrue(workflows, "no workflows found")
+        for wf in workflows:
+            with self.subTest(workflow=wf.name):
+                for n, line in enumerate(wf.read_text().splitlines(), 1):
+                    if not line or line[0] in " \t#":
+                        continue
+                    key = line.split(":", 1)[0].strip()
+                    self.assertIn(
+                        key, self.ALLOWED,
+                        f"{wf.name}:{n} starts a top-level key {key!r} that "
+                        f"GitHub does not recognise -- most likely a comment "
+                        f"that lost its '# '")
+
+
 class TestLicenceConsistency(unittest.TestCase):
     """The tree is Apache-2.0; every place that states a licence must agree.
 

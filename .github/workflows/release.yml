@@ -4,7 +4,7 @@ name: release
 # OIDC identity token for this workflow and PyPI verifies it, so there is no
 # long-lived secret in this repository.
 #
-Two distributions go out together: the pure-Python `cdclkit`, and the optional
+# Two distributions go out together: the pure-Python `cdclkit`, and the optional
 # `cdclkit-native` accelerator as per-platform wheels. They share a version,
 # which tests/test_packaging.py enforces.
 #
