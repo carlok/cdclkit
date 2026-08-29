@@ -1,0 +1,34 @@
+[build-system]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "cdclkit-native"
+description = "Optional Rust engine for the cdclkit SAT toolkit"
+requires-python = ">=3.10"
+authors = [{ name = "Carlo Perassi" }]
+# a symlink to the root COPYRIGHT: maturin refuses a path outside the crate
+# root, and a second copy of the text is a second thing to drift
+license-files = ["COPYRIGHT"]
+
+# No licence is granted; see ../COPYRIGHT and ../docs/LICENSING.md.
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: Other/Proprietary License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Programming Language :: Rust",
+]
+
+# Deliberately does NOT depend on `cdclkit`. The dependency runs the other way:
+# cdclkit/native.py imports this if it happens to be present and works fine when
+# it is not. Declaring a cycle here would make the pure-Python install pull in
+# a compiler.
+dependencies = []
+
+dynamic = ["version"]
+
+[tool.maturin]
+module-name = "cdclkit_native"
+# The version comes from Cargo.toml, which tests/test_packaging.py pins to
+# cdclkit/__init__.py.

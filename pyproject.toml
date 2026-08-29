@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cdclkit"
+version = "0.1.0"
+description = "A CDCL SAT solver, preprocessor, encoding library and modelling layer, written from scratch in readable Python. Every answer comes with a certificate."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Carlo Perassi" }]
+keywords = ["sat", "solver", "cdcl", "dpll", "drat", "constraint", "smt"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+
+# The only dependency is the proof checker, which itself has none. The solver
+# uses it to check its own refutations, so the checker is exercised by every
+# test run here as well as by its own suite.
+dependencies = ["dratify>=0.1.0"]
+
+[project.optional-dependencies]
+# The Rust solver accelerator. Optional by design: the pure-Python engine is
+# the reference implementation and the path that must never break.
+native = ["cdclkit-native==0.1.0"]
+
+[project.scripts]
+cdclkit = "cdclkit.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/carlok/cdclkit"
+Source = "https://github.com/carlok/cdclkit"
+"Proof checker" = "https://github.com/carlok/dratify"
+
+[tool.setuptools.packages.find]
+include = ["cdclkit*"]

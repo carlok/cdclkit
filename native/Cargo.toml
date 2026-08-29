@@ -1,0 +1,39 @@
+[package]
+name = "cdclkit-native"
+version = "0.1.0"
+license = "Apache-2.0"
+edition = "2021"
+description = "Optional native engine for the cdclkit SAT toolkit"
+repository = "https://github.com/carlok/cdclkit"
+
+[lib]
+name = "cdclkit_native"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.27", features = ["extension-module"] }
+
+# Measured, not assumed.  These three are the settings that pay; two further
+# levers were tried and rejected (min of 5 runs over the 5 instances that take
+# real time, baseline re-measured to confirm 0.05% run-to-run variance):
+#
+#   baseline (below)     4.5745 s / 4.5723 s
+#   + target-cpu=native  4.6322 s   +1.3%
+#   + PGO                4.6299 s   +1.2%
+#
+# Neither helps, and both cost something: target-cpu=native makes the artifact
+# non-portable, PGO adds a two-stage build. The reason they do nothing is that
+# a CDCL solver is bound by cache misses walking watch lists and the clause
+# arena, not by instruction selection or branch layout -- and the branches in
+# propagation are data-dependent in a way a profile cannot predict, since
+# "is this literal true" is close to random per execution. LTO plus
+# codegen-units=1 already gives the optimizer whole-program visibility.
+#
+# The recipe is in docs/ALGORITHMS.md if you want to retry it on different
+# hardware or a different workload, where it may well pay.
+[profile.release]
+opt-level = 3
+lto = true            # fat LTO, not "thin"
+codegen-units = 1     # no parallel-codegen optimisation loss
+# no panic = "abort": pyo3 converts panics into Python exceptions,
+# which needs unwinding across the FFI boundary

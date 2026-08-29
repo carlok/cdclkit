@@ -1,0 +1,5 @@
+# Experiment harness only. `cdclkit` itself has zero runtime dependencies and
+# these are deliberately kept out of it -- they exist to give pyeq the
+# strongest baseline available to beat, not to ship.
+hypothesis
+crosshair-tool
