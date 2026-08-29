@@ -30,6 +30,6 @@ done
 # ex6_pipeline.py writes build/timetable2.{cnf,drat}; the second Rust binary
 # reads them back, so the order here matters.
 echo "=== code/rust-demo (checker API)"
-(cd code/rust-demo && cargo run --quiet)
+(cd code/rust-demo && cargo run --quiet --bin rust-demo)
 echo "=== code/rust-demo (reading the files Python wrote)"
 (cd code/rust-demo && cargo run --quiet --bin check_files)

@@ -2,6 +2,8 @@
 name = "rust-demo"
 version = "0.1.0"
 edition = "2021"
+# two binaries now, so name the one plain `cargo run` should pick
+default-run = "rust-demo"
 
 [dependencies]
 dratify = "0.1"
