@@ -88,6 +88,8 @@ struct WorkerConfig {
     reduce_inc: u64,
     glue_keep: u32,
     block_restart: bool,
+    rnd_freq: f64,
+    rnd_seed: u32,
 }
 
 
@@ -345,7 +347,8 @@ impl PySolver {
                         var_decay = 0.8, var_decay_max = 0.95,
                         cla_decay = 0.999, luby_base = 100.0,
                         first_reduce = 2000, reduce_inc = 300,
-                        glue_keep = 2, block_restart = true))]
+                        glue_keep = 2, block_restart = true,
+                        rnd_freq = 0.0, rnd_seed = 91648253))]
     #[allow(clippy::too_many_arguments)]
     fn new(
         nvars: u32, restart: &str, ccmin: &str, phase_saving: bool,
@@ -354,7 +357,7 @@ impl PySolver {
         walk_min_conflicts: u64,
         var_decay: f64, var_decay_max: f64, cla_decay: f64,
         luby_base: f64, first_reduce: u64, reduce_inc: u64, glue_keep: u32,
-        block_restart: bool,
+        block_restart: bool, rnd_freq: f64, rnd_seed: u32,
     ) -> PyResult<Self> {
         let restart = match restart {
             "glucose" => solver::RestartPolicy::Glucose,
@@ -373,6 +376,7 @@ impl PySolver {
             phase_saving, init_phase, target_phase, target_reset,
             walk_flips, walk_interval, walk_patience, walk_min_conflicts,
             first_reduce, reduce_inc, glue_keep, block_restart,
+            rnd_freq, rnd_seed,
         };
         Ok(Self { inner: solver::Solver::new(nvars, cfg) })
     }
@@ -523,7 +527,7 @@ fn py_solve_portfolio(
         let WorkerConfig {
             restart, ccmin, phase_saving, init_phase, target_phase, target_reset,
             walk_flips, walk_interval, walk_patience, walk_min_conflicts, var_decay, var_decay_max, cla_decay, luby_base, first_reduce,
-            reduce_inc, glue_keep, block_restart,
+            reduce_inc, glue_keep, block_restart, rnd_freq, rnd_seed,
         } = c;
         cfgs.push(solver::Config {
             restart: match restart.as_str() {
@@ -540,7 +544,7 @@ fn py_solve_portfolio(
             },
             phase_saving, init_phase, target_phase, target_reset, walk_flips,
             walk_interval, walk_patience, walk_min_conflicts, var_decay, var_decay_max, cla_decay, luby_base, first_reduce, reduce_inc,
-            glue_keep, block_restart,
+            glue_keep, block_restart, rnd_freq, rnd_seed,
         });
     }
 

@@ -235,6 +235,7 @@ def _worker_native(index, nvars, clauses, cfg_kwargs, want_proof):
         cla_decay=cfg.cla_decay, luby_base=float(cfg.luby_base),
         first_reduce=cfg.first_reduce, reduce_inc=cfg.reduce_inc,
         glue_keep=cfg.glue_keep, block_restart=cfg.block_restart,
+        rnd_freq=cfg.rnd_freq, rnd_seed=cfg.rnd_seed,
     )
     if want_proof:
         s.enable_proof()  # must precede the first clause
@@ -416,7 +417,8 @@ def _config_tuples(configs):
              var_decay=c.var_decay, var_decay_max=c.var_decay_max,
              cla_decay=c.cla_decay, luby_base=float(c.luby_base),
              first_reduce=c.first_reduce, reduce_inc=c.reduce_inc,
-             glue_keep=c.glue_keep, block_restart=c.block_restart)
+             glue_keep=c.glue_keep, block_restart=c.block_restart,
+             rnd_freq=c.rnd_freq, rnd_seed=c.rnd_seed)
         for c in configs
     ]
 

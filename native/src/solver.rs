@@ -129,6 +129,14 @@ pub struct Config {
     pub first_reduce: u64,
     pub reduce_inc: u64,
     pub glue_keep: u32,
+    /// Probability of taking a random decision instead of the highest-activity
+    /// one. Zero by default, and the zero is load-bearing: `pick_branch_lit`
+    /// tests it *before* drawing, so a zero frequency never advances the PRNG
+    /// and both engines consume identical random streams.
+    pub rnd_freq: f64,
+    /// Seed for the xorshift32 stream. The portfolio varies this per worker so
+    /// that duplicated recipes still explore differently.
+    pub rnd_seed: u32,
     pub block_restart: bool,
 }
 
@@ -167,6 +175,8 @@ impl Default for Config {
             reduce_inc: 300,
             glue_keep: 2,
             block_restart: true,
+            rnd_freq: 0.0,
+            rnd_seed: 91_648_253,
         }
     }
 }
@@ -453,6 +463,8 @@ pub struct Solver {
 
 impl Solver {
     pub fn new(nvars: u32, cfg: Config) -> Self {
+        // read before `cfg` is moved into the struct
+        let rnd_seed = cfg.rnd_seed;
         let mut s = Self {
             var_decay: cfg.var_decay,
             cfg,
@@ -476,7 +488,7 @@ impl Solver {
             polarity: Vec::new(),
             target: Vec::new(),
             target_size: 0,
-            rnd: 91648253,
+            rnd: rnd_seed,
             walk_best: usize::MAX,
             walk_stale: 0,
             deadline: None,
@@ -1166,6 +1178,32 @@ impl Solver {
         // an allocation and a full copy of the activity vector on *every
         // iteration of this loop*, which on a 250-variable instance with
         // 200k decisions is tens of millions of wasted f64 copies.
+        // Random decisions, gated exactly as the Python engine gates them.
+        // The short-circuit order matters for bit-exactness: `rnd_freq > 0.0`
+        // is tested first, so the default configuration never draws and the
+        // PRNG stream stays aligned with the walk's use of it.
+        //
+        // Python also checks `not self.frozen[v]` here. There is no `frozen`
+        // array on this side because nothing in the package ever creates a
+        // non-decision variable -- `new_var(decision=False)` is public API with
+        // no in-tree caller -- so the test is vacuously true. If that changes,
+        // it has to change here too.
+        if self.cfg.rnd_freq > 0.0
+            && self.rand() < self.cfg.rnd_freq
+            && !self.order.heap.is_empty()
+        {
+            let idx = (self.rand() * self.order.heap.len() as f64) as usize;
+            let v = self.order.heap[idx];
+            if self.val[(v << 1) as usize] == U {
+                self.stats.decisions += 1;
+                let phase: &Vec<bool> =
+                    if self.cfg.target_phase { &self.target } else { &self.polarity };
+                let l = (v << 1) | if phase[v as usize] { 0 } else { 1 };
+                return l as i64;
+            }
+            // Falls through to the activity heap, exactly as Python does when
+            // the sampled variable is already assigned.
+        }
         let Self { order, act, val, polarity, target, cfg, stats, .. } = self;
         // Bind the source array once rather than testing per decision: this is
         // the hottest loop after propagation.

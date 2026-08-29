@@ -161,6 +161,85 @@ class TestDefaultsAgree(unittest.TestCase):
 
 
 @requires_native
+class TestRandomBranchingAgrees(unittest.TestCase):
+    """`rnd_freq` and `rnd_seed` must reach the native engine and match.
+
+    These two knobs had no Rust counterpart at all: the native side accepted
+    the rest of the configuration and silently dropped these, so a Python run
+    at rnd_freq=0.02 took 4,987 conflicts where the native one took 3,171.
+
+    That was not a cosmetic gap. `portfolio.py` builds worker diversity from
+    exactly these two fields, and sets a per-worker seed specifically "so
+    duplicated recipes still diverge" -- which on the native path they did not,
+    because every worker got the same search. Duplicate recipes became
+    bit-identical duplicate workers doing the same work in parallel.
+
+    The existing bit-exactness tests could not have caught this: none of them
+    set either knob.
+    """
+
+    def _native(self, f, rnd_freq, rnd_seed):
+        n = native.require()
+        d = Config()
+        rs = n.Solver(
+            f.nvars, restart=d.restart, ccmin=d.ccmin,
+            phase_saving=d.phase_saving, init_phase=d.init_phase,
+            target_phase=d.target_phase, target_reset=d.target_reset,
+            walk_flips=d.walk_flips, walk_interval=d.walk_interval,
+            walk_patience=d.walk_patience,
+            walk_min_conflicts=d.walk_min_conflicts,
+            var_decay=d.var_decay, var_decay_max=d.var_decay_max,
+            cla_decay=d.cla_decay, luby_base=float(d.luby_base),
+            first_reduce=d.first_reduce, reduce_inc=d.reduce_inc,
+            glue_keep=d.glue_keep, block_restart=d.block_restart,
+            rnd_freq=rnd_freq, rnd_seed=rnd_seed)
+        for c in f.clauses:
+            rs.add_clause(list(c))
+        rs.solve(None)
+        return rs.conflicts, rs.decisions, rs.propagations
+
+    def _python(self, f, rnd_freq, rnd_seed):
+        from cdclkit.solver import Solver as PySolver
+
+        cfg = Config()
+        cfg.rnd_freq = rnd_freq
+        cfg.rnd_seed = rnd_seed
+        py = PySolver(f.nvars, config=cfg)
+        py.add_cnf(f)
+        py.solve()
+        return py.stats.conflicts, py.stats.decisions, py.stats.propagations
+
+    def test_engines_agree_across_frequencies_and_seeds(self):
+        f = php(6)
+        for freq, seed in [(0.0, 91648253), (0.02, 91648253), (0.02, 12345),
+                           (0.10, 7), (0.05, 999983)]:
+            with self.subTest(rnd_freq=freq, rnd_seed=seed):
+                self.assertEqual(
+                    self._python(f, freq, seed), self._native(f, freq, seed),
+                    f"engines diverge at rnd_freq={freq}, rnd_seed={seed}")
+
+    def test_a_zero_frequency_does_not_touch_the_random_stream(self):
+        """The short-circuit is load-bearing, not an optimisation.
+
+        Python tests `rnd_freq > 0.0` before drawing, so the default
+        configuration never advances the PRNG. If the native side drew first,
+        the walk -- which shares the stream -- would desynchronise and the two
+        engines would diverge on instances long enough to reach it.
+        """
+        f = php(6)
+        self.assertEqual(self._python(f, 0.0, 91648253),
+                         self._native(f, 0.0, 91648253))
+
+    def test_the_seed_actually_changes_the_search(self):
+        """A knob that is wired up but inert would pass the tests above."""
+        f = php(6)
+        runs = {self._native(f, 0.05, seed) for seed in (1, 7, 12345, 999983)}
+        self.assertGreater(len(runs), 1,
+                           "every seed produced an identical search, so the "
+                           "seed is not reaching the engine")
+
+
+@requires_native
 class TestTier2Faithfulness(unittest.TestCase):
     """Bit-exact agreement with the Python solver."""
 

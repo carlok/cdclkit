@@ -92,6 +92,7 @@ def _solve(f: CNF, cfg: Config, budget: int | None, engine: str,
             cla_decay=cfg.cla_decay, luby_base=float(cfg.luby_base),
             first_reduce=cfg.first_reduce, reduce_inc=cfg.reduce_inc,
             glue_keep=cfg.glue_keep, block_restart=cfg.block_restart,
+            rnd_freq=cfg.rnd_freq, rnd_seed=cfg.rnd_seed,
         )
         for c in f.clauses:
             if not s.add_clause(list(c)):
