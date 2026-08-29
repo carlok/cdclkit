@@ -31,11 +31,6 @@ classifiers = [
 # test run here as well as by its own suite.
 dependencies = ["dratify>=0.1.1"]
 
-[project.optional-dependencies]
-# The Rust solver accelerator. Optional by design: the pure-Python engine is
-# the reference implementation and the path that must never break.
-native = ["cdclkit-native==0.1.0"]
-
 [project.scripts]
 cdclkit = "cdclkit.__main__:main"
 

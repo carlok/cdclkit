@@ -50,7 +50,8 @@ puzzle, graph colouring, bounded model checking, circuit equivalence.
 | `portfolio` | parallel configurations |
 | `pyeq` | **experimental** — bounded equivalence of two Python integer functions |
 
-An optional Rust engine (`pip install cdclkit[native]`) is roughly 18x faster
+An optional Rust engine (built from source with `make native` -- it is not
+on PyPI yet) is roughly 18x faster
 and **bit-exact** with the Python one: identical conflicts, decisions and
 propagations on every instance. The pure-Python path has zero third-party
 dependencies and is the one that must never break.

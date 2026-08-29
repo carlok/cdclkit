@@ -41,9 +41,25 @@ class TestVersions(unittest.TestCase):
         )
 
     def test_the_native_extra_pins_the_matching_version(self):
+        """If a [native] extra is declared, it must pin this exact version.
+
+        There is deliberately no such extra today: `cdclkit-native` is not
+        published to PyPI, so advertising `pip install cdclkit[native]` would
+        promise an install that fails on the first thing a user tries. The
+        accelerator is built from source (`make native`) until wheels exist.
+
+        The check is conditional rather than deleted so that it re-arms by
+        itself the day the extra comes back.
+        """
         import cdclkit
 
-        pin = re.search(r'cdclkit-native==([0-9][^"\']*)', _read("pyproject.toml"))
+        text = _read("pyproject.toml")
+        if "cdclkit-native" not in text:
+            self.assertNotIn("[native]", _read("README.md"),
+                             "the README offers an extra that pyproject.toml "
+                             "does not declare")
+            self.skipTest("no [native] extra is declared")
+        pin = re.search(r'cdclkit-native==([0-9][^"\']*)', text)
         self.assertIsNotNone(pin, "the [native] extra does not pin a version")
         self.assertEqual(pin.group(1), cdclkit.__version__,
                          "the [native] extra pins a version of the accelerator "
