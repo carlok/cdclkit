@@ -30,6 +30,40 @@ A solver that says "unsatisfiable" and offers nothing else is asking to be
 trusted. This one hands you the proof — and the checker that reads it shares no
 code with the solver that wrote it.
 
+## Why you would want this
+
+You have a pile of constraints and need any assignment satisfying all of them:
+
+- **Rostering and scheduling** — six nurses, three shifts, nobody works two
+  nights running, everyone gets a weekend off a month.
+- **Configuration** — which package versions can coexist, which hardware
+  options are compatible.
+- **Assignment** — exams to rooms and slots with no clashes, frequencies to
+  transmitters that must not interfere.
+- **Puzzles** — Sudoku, nonograms, the zebra puzzle. Genuinely the same shape
+  as the three above.
+
+The alternative is writing backtracking search yourself. That is slow to write,
+and what you produce in an afternoon will be far slower than a solver with
+thirty years of engineering in the same loop.
+
+Two things you get that a hand-rolled search does not:
+
+- **When there is no solution, you learn why.** A minimal unsatisfiable subset
+  names the handful of constraints that actually conflict, instead of reporting
+  "infeasible" and leaving you to bisect a thousand of them.
+- **When it says "no", you can check it.** A "yes" verifies itself in linear
+  time; a "no" is an assertion about every one of 2^n assignments. This one
+  hands you a proof.
+
+**When not to.** Numeric optimisation over real numbers wants an LP or MIP
+solver, not this. Raw throughput on millions of clauses wants
+[PySAT](https://pypi.org/project/python-sat/), which ships kissat and CaDiCaL
+as binary wheels and will be much faster.
+
+New to this? [docs/tutorial/](docs/tutorial/) starts from boolean logic and
+assumes nothing else.
+
 ## Quick start
 
 ```python

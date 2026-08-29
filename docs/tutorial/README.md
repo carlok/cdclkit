@@ -6,6 +6,7 @@ has never used a SAT solver.
     tutorial.tex     the document
     tutorial.pdf     built output
     code/            every example, runnable
+    build/           files the examples write (gitignored)
     run_examples.sh  runs them all
 
 Build with `latexmk -pdf tutorial.tex`.
@@ -26,15 +27,19 @@ artefacts (`.aux`, `.log`, `.toc`, the Rust `target/`) are gitignored.
 
 Not started. Recorded here so the requirement is not lost.
 
-The target is a static site under `carlok.github.io`, built to match
-**LeanFrontier** (`carlok/LeanFrontier`, `docs/website/`), not the output of a
+The target is a static site under `carlok.github.io`, not the output of a
 LaTeX-to-HTML converter. `tex4ht`, `pandoc` and `latex2html` all produce pages
 that look converted, which is the thing being avoided.
 
-### What that site actually is
+### A reference for the standard, not a palette to copy
 
-Studied rather than assumed. `docs/website/` is `index.html`, one
-`assets/site.css` (168 lines), a favicon, and nine field notes. Notable:
+**LeanFrontier** (`carlok/LeanFrontier`, `docs/website/`) came up as an example
+of the *level* to aim for. It is not a template — this site should look like
+itself, and the colours below are one solution rather than the solution. What
+is worth stealing is the discipline, not the hex codes.
+
+`docs/website/` is `index.html`, one `assets/site.css` (168 lines), a favicon,
+and nine field notes. What makes it good:
 
 - **Zero JavaScript.** Not one `<script>` tag on any page.
 - **A warm paper palette, not a dev-tool dark theme.** `--paper: #f4f1e8`,
@@ -66,7 +71,8 @@ need care:
 3. **`run_examples.sh` stays the gate.** If a snippet on the site does not run,
    the build should fail, exactly as the PDF cannot currently drift.
 
-Reuse `site.css` as the starting point and add what Python and Rust need that
-Lean did not.
+Pick a palette that suits this project rather than inheriting one. The
+properties to keep are the zero-JS constraint, system fonts, real focus states,
+and code blocks that are legible rather than decorative.
 
 The PDF stays. It is the offline artefact; the site is where people land.

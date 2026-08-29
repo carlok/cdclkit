@@ -27,5 +27,9 @@ for f in code/ex*.py; do
     echo "=== $f"
     "$PY" "$f"
 done
-echo "=== code/rust-demo"
+# ex6_pipeline.py writes build/timetable2.{cnf,drat}; the second Rust binary
+# reads them back, so the order here matters.
+echo "=== code/rust-demo (checker API)"
 (cd code/rust-demo && cargo run --quiet)
+echo "=== code/rust-demo (reading the files Python wrote)"
+(cd code/rust-demo && cargo run --quiet --bin check_files)
