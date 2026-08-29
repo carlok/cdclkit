@@ -15,7 +15,7 @@ The contract, in both directions:
   without the repo ever being in a broken state.
 * **If it is present, it is opt-in.** Nothing selects the native path on its
   own. A caller asks for it explicitly (`--engine native`, or
-  `SABLE_ENGINE=native`), because a silent switch between two implementations
+  `CDCLKIT_ENGINE=native`), because a silent switch between two implementations
   is how differential bugs hide.
 
 Building it::
@@ -46,6 +46,21 @@ try:  # pragma: no cover - the import result is the thing being reported
     import cdclkit_native as _native
 except ImportError:  # pragma: no cover
     _native = None
+else:  # pragma: no cover - depends on whether the module was built
+    # The Rust checker lives in the `dratify` crate, which this crate embeds,
+    # but `dratify` ships no Python bindings of its own yet. Hand ours over so
+    # that check_proof(engine="auto") uses it instead of falling back to the
+    # pure-Python checker, which is ~18x slower on large proofs.
+    #
+    # This is not the silent engine switch the rest of this module warns about.
+    # Two checkers must agree by construction -- if they ever disagree that is
+    # a bug worth surfacing, not a difference worth preserving. The solver is
+    # the thing that stays explicitly opt-in.
+    try:
+        import dratify as _dratify
+        _dratify.register_native(_native)
+    except (ImportError, AttributeError):  # dratify < 0.1.1 has no seam
+        pass
 
 
 BUILD_HINT = (
@@ -84,13 +99,13 @@ def build_hint() -> str:
 def engine_requested(default: str = "python") -> str:
     """Which engine the environment asks for.
 
-    Reads `SABLE_ENGINE`; an explicit request for an unavailable engine is an
+    Reads `CDCLKIT_ENGINE`; an explicit request for an unavailable engine is an
     error rather than a silent downgrade, because "I asked for native and got
     Python timings" is a bad way to spend an afternoon.
     """
-    want = os.environ.get("SABLE_ENGINE", default).strip().lower()
+    want = os.environ.get("CDCLKIT_ENGINE", default).strip().lower()
     if want not in ("python", "native"):
-        raise ValueError(f"unknown SABLE_ENGINE {want!r} (expected python or native)")
+        raise ValueError(f"unknown CDCLKIT_ENGINE {want!r} (expected python or native)")
     if want == "native" and not available():
-        raise RuntimeError("SABLE_ENGINE=native but " + BUILD_HINT)
+        raise RuntimeError("CDCLKIT_ENGINE=native but " + BUILD_HINT)
     return want

@@ -110,6 +110,13 @@ _LAZY = {
 }
 
 
+# Imported eagerly, not lazily: importing it is what registers the native
+# checker with `dratify`, and a checker that is present but unregistered would
+# silently cost ~18x on proof checking. The import is a single guarded attempt
+# at a compiled module and costs nothing when it is absent.
+from . import native as _native_loader  # noqa: F401,E402
+
+
 def __getattr__(name: str):
     """PEP 562 lazy attribute access for the heavier public names."""
     mod = _LAZY.get(name)

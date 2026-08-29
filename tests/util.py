@@ -49,22 +49,22 @@ def solve_with_proof(f: CNF):
 def fuzz_seed(base: int) -> int:
     """Seed base for a fuzz family, overridable to re-run a reported failure.
 
-    ``SABLE_FUZZ_SEED=12345 python3 -m unittest tests.fuzz_dimacs`` shifts every
+    ``CDCLKIT_FUZZ_SEED=12345 python3 -m unittest tests.fuzz_dimacs`` shifts every
     family by the same offset, which is how you widen the search after a clean
     run without editing the source.
     """
-    return base + int(os.environ.get("SABLE_FUZZ_SEED", "0"))
+    return base + int(os.environ.get("CDCLKIT_FUZZ_SEED", "0"))
 
 
 def fuzz_cases(default: int) -> int:
-    """Case count for one fuzz family, scaled by ``SABLE_FUZZ``.
+    """Case count for one fuzz family, scaled by ``CDCLKIT_FUZZ``.
 
     These run inside ``make gate``, which must stay in the seconds.  The
-    default budget is chosen for that; ``SABLE_FUZZ=20`` turns the same code
+    default budget is chosen for that; ``CDCLKIT_FUZZ=20`` turns the same code
     into a soak test without a second implementation to maintain.
     """
     try:
-        factor = float(os.environ.get("SABLE_FUZZ", "1"))
+        factor = float(os.environ.get("CDCLKIT_FUZZ", "1"))
     except ValueError:
         factor = 1.0
     return max(1, int(default * factor))

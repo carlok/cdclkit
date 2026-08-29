@@ -183,7 +183,7 @@ correctness bugs today; all of them are how a correctness bug would get in.
       both defined in `brute.py`. That is self-consistency, not independence.
 - [ ] **"Fuzzing" is a fixed corpus.** All 41 `random.Random(N)` calls use
       hardcoded literal seeds; mean 6 variables, max 59. `tests/util.py`
-      already has `fuzz_seed()` / `fuzz_cases()` with `SABLE_FUZZ_SEED` and
+      already has `fuzz_seed()` / `fuzz_cases()` with `CDCLKIT_FUZZ_SEED` and
       **zero call sites**, plus a docstring pointing at `tests.fuzz_dimacs`,
       which does not exist. Wire it up or stop calling it fuzzing.
 - [ ] **`make test` uses the system interpreter**, so the default developer

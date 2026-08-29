@@ -11,6 +11,9 @@ name = "cdclkit_native"
 crate-type = ["cdylib"]
 
 [dependencies]
+# The proof checker lives in its own crate. This used to be a byte-identical
+# copy of it, which is a divergence bug waiting to happen.
+dratify = "0.1.0"
 pyo3 = { version = "0.27", features = ["extension-module"] }
 
 # Measured, not assumed.  These three are the settings that pay; two further

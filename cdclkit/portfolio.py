@@ -100,7 +100,7 @@ def performance_cores() -> int:
 
 #: Marks a process as a portfolio worker.  Set in the environment the children
 #: inherit, so it is visible even before their `__main__` is re-imported.
-_WORKER_ENV = "SABLE_PORTFOLIO_WORKER"
+_WORKER_ENV = "CDCLKIT_PORTFOLIO_WORKER"
 
 
 def in_worker() -> bool:

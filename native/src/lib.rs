@@ -36,7 +36,6 @@
 //! The cost is that clause deletion cannot be left to a garbage collector:
 //! Sprint 2 will need explicit compaction with offset relocation.
 
-pub mod checker;
 pub mod portfolio;
 pub mod preprocess;
 pub mod solver;
@@ -558,7 +557,7 @@ fn py_check_proof(
     apply_deletions: bool,
 ) -> (bool, String, u64, u64, u64, u64, u64, u64, i64, bool) {
     let r = py.detach(|| {
-        let mut c = checker::Checker::new(nvars, &clauses, check_rat, apply_deletions);
+        let mut c = dratify::Checker::new(nvars, &clauses, check_rat, apply_deletions);
         c.check(&steps)
     });
     (r.ok, r.reason, r.steps, r.rup_steps, r.rat_steps, r.deletions,

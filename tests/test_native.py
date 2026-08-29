@@ -50,16 +50,16 @@ class TestFallback(unittest.TestCase):
     def test_unknown_engine_is_rejected(self):
         import os
 
-        previous = os.environ.get("SABLE_ENGINE")
-        os.environ["SABLE_ENGINE"] = "quantum"
+        previous = os.environ.get("CDCLKIT_ENGINE")
+        os.environ["CDCLKIT_ENGINE"] = "quantum"
         try:
             with self.assertRaises(ValueError):
                 native.engine_requested()
         finally:
             if previous is None:
-                os.environ.pop("SABLE_ENGINE", None)
+                os.environ.pop("CDCLKIT_ENGINE", None)
             else:
-                os.environ["SABLE_ENGINE"] = previous
+                os.environ["CDCLKIT_ENGINE"] = previous
 
 
 @requires_native

@@ -61,12 +61,12 @@ BASE = "https://www.cs.ubc.ca/~hoos/SATLIB/Benchmarks/SAT"
 def corpus_dir() -> pathlib.Path:
     """Where instances live.
 
-    `SABLE_BENCH_DIR` relocates the corpus -- to an external disk, or to
+    `CDCLKIT_BENCH_DIR` relocates the corpus -- to an external disk, or to
     somewhere a much larger benchmark set would fit. SATLIB is a few megabytes
     so this is not needed today; it exists so that adding a competition corpus
     later does not mean editing the harness.
     """
-    env = os.environ.get("SABLE_BENCH_DIR")
+    env = os.environ.get("CDCLKIT_BENCH_DIR")
     if env:
         return pathlib.Path(env).expanduser()
     return pathlib.Path(__file__).with_name("instances") / "satlib"

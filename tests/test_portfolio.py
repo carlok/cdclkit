@@ -109,8 +109,8 @@ class TestProcessSafety(unittest.TestCase):
         """
         f = CNF(4)
         f.add([mk_lit(0), mk_lit(1)])
-        previous = os.environ.get("SABLE_PORTFOLIO_WORKER")
-        os.environ["SABLE_PORTFOLIO_WORKER"] = "1"
+        previous = os.environ.get("CDCLKIT_PORTFOLIO_WORKER")
+        os.environ["CDCLKIT_PORTFOLIO_WORKER"] = "1"
         try:
             self.assertTrue(in_worker())
             r = solve_portfolio(f, jobs=8)
@@ -118,9 +118,9 @@ class TestProcessSafety(unittest.TestCase):
             self.assertTrue(r.finished)
         finally:
             if previous is None:
-                os.environ.pop("SABLE_PORTFOLIO_WORKER", None)
+                os.environ.pop("CDCLKIT_PORTFOLIO_WORKER", None)
             else:
-                os.environ["SABLE_PORTFOLIO_WORKER"] = previous
+                os.environ["CDCLKIT_PORTFOLIO_WORKER"] = previous
         self.assertFalse(in_worker(), "the marker must not leak into the parent")
 
     def test_start_method_is_chosen_not_assumed(self):
