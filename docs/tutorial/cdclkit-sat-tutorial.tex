@@ -9,7 +9,7 @@
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
 \usepackage{tikz}
-\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,calc}
 \usepackage[colorlinks=true,linkcolor=black,urlcolor=blue!60!black]{hyperref}
 \usepackage{parskip}
 
@@ -337,27 +337,32 @@ part is that the same encoding answers both.
 
 \begin{center}
 \begin{tikzpicture}[
-  node distance=9mm,
   box/.style={draw, rounded corners=2pt, align=center, font=\small,
-              minimum height=9mm, inner xsep=4pt},
+              minimum height=9mm, inner xsep=5pt},
   file/.style={draw, dashed, rounded corners=2pt, align=center,
-               font=\ttfamily\scriptsize, minimum height=8mm},
-  arr/.style={-{Stealth[length=2mm]}, thick}]
+               font=\ttfamily\scriptsize, minimum height=9mm, inner xsep=5pt},
+  arr/.style={-{Stealth[length=2mm]}, thick},
+  lbl/.style={font=\scriptsize\sffamily, inner sep=1.5pt, fill=white}]
 
-  \node[box] (prob) {your problem\\\scriptsize in words};
-  \node[box, right=of prob] (enc) {encode\\\scriptsize Python};
-  \node[file, right=of enc] (cnf) {.cnf\\DIMACS};
-  \node[box, right=of cnf] (solve) {solve};
+  \node[box]                      (prob)  {your problem\\[-1pt]\scriptsize in words};
+  \node[box,  right=7mm of prob]  (enc)   {encode\\[-1pt]\scriptsize Python};
+  \node[file, right=7mm of enc]   (cnf)   {.cnf\\[-1pt]DIMACS};
+  \node[box,  right=7mm of cnf]   (solve) {solve};
 
-  \node[box, above right=4mm and 9mm of solve] (model) {model\\\scriptsize check it yourself};
-  \node[file, below right=4mm and 9mm of solve] (drat) {.drat\\DRAT proof};
-  \node[box, right=9mm of drat] (check) {check\\\scriptsize Python or Rust};
+  % branch targets, placed on two rows so the split is orthogonal
+  \node[box,  right=26mm of solve, yshift=12mm]  (model) {model\\[-1pt]\scriptsize check it yourself};
+  \node[file, right=26mm of solve, yshift=-12mm] (drat)  {.drat\\[-1pt]DRAT proof};
+  \node[box,  right=8mm of drat]                 (check) {check\\[-1pt]\scriptsize Python or Rust};
 
-  \draw[arr] (prob) -- (enc);
-  \draw[arr] (enc) -- (cnf);
-  \draw[arr] (cnf) -- (solve);
-  \draw[arr] (solve.east) -- node[above, font=\scriptsize, pos=0.4] {SAT} (model.west);
-  \draw[arr] (solve.east) -- node[below, font=\scriptsize, pos=0.4] {UNSAT} (drat.west);
+  \draw[arr] (prob)  -- (enc);
+  \draw[arr] (enc)   -- (cnf);
+  \draw[arr] (cnf)   -- (solve);
+
+  % right, then up/down, then right again: labels live on the flat runs
+  \coordinate (split) at ($(solve.east)+(7mm,0)$);
+  \draw[thick] (solve.east) -- (split);
+  \draw[arr] (split) |- node[lbl, pos=0.75, above] {SAT}   (model.west);
+  \draw[arr] (split) |- node[lbl, pos=0.75, below] {UNSAT} (drat.west);
   \draw[arr] (drat) -- (check);
 \end{tikzpicture}
 \end{center}

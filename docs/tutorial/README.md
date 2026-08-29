@@ -3,13 +3,22 @@
 A tutorial for a working Python or Rust programmer who knows boolean logic and
 has never used a SAT solver.
 
-    tutorial.tex     the document
-    tutorial.pdf     built output
+    cdclkit-sat-tutorial.tex     the document
+    cdclkit-sat-tutorial.pdf     built output
     code/            every example, runnable
     build/           files the examples write (gitignored)
     run_examples.sh  runs them all
 
-Build with `latexmk -pdf tutorial.tex`.
+Build with `latexmk -pdf cdclkit-sat-tutorial.tex`.
+
+Check the result by looking at it, not by grepping the PDF:
+
+    pdftoppm -png -r 110 -f 7 -l 7 cdclkit-sat-tutorial.pdf /tmp/page
+
+Structural checks miss layout. A version of the pipeline diagram passed every
+automated check -- the figures were present, the drawing operations were in the
+content stream -- while the SAT and UNSAT labels were struck through by their
+own arrows. That is only visible by rendering the page.
 
 Listings are pulled from `code/` with `\lstinputlisting`, so the document
 cannot drift from the code that actually runs. The outputs quoted in the text

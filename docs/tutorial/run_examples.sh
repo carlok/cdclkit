@@ -1,5 +1,5 @@
 #!/bin/sh
-# Every listing in tutorial.tex is pulled from code/ with \lstinputlisting, so
+# Every listing in cdclkit-sat-tutorial.tex is pulled from code/ with \lstinputlisting, so
 # the document cannot drift from what runs. This re-runs all of it.
 #
 #   cd tex/tutorial && ./run_examples.sh
