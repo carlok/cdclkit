@@ -5,6 +5,9 @@ build-backend = "maturin"
 [project]
 name = "cdclkit-native"
 description = "Optional Rust engine for the cdclkit SAT toolkit"
+# without this the PyPI page renders empty -- maturin publishes no
+# long description unless one is named here
+readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Carlo Perassi" }]
 license = "Apache-2.0"

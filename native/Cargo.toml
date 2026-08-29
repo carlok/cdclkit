@@ -1,6 +1,6 @@
 [package]
 name = "cdclkit-native"
-version = "0.1.1"
+version = "0.1.2"
 license = "Apache-2.0"
 edition = "2021"
 description = "Optional native engine for the cdclkit SAT toolkit"
