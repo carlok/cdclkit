@@ -6,8 +6,16 @@ library and a modelling layer — written from scratch in readable Python.**
 Every answer comes with a certificate, and the certificate gets checked.
 
 ```bash
-pip install cdclkit
+pip install cdclkit              # pure Python
+pip install "cdclkit[native]"    # plus the Rust engine, ~18x faster
 ```
+
+Three packages, and no third-party code:
+[`cdclkit`](https://pypi.org/project/cdclkit/),
+[`dratify`](https://pypi.org/project/dratify/) (the proof checker, zero
+dependencies), and optionally
+[`cdclkit-native`](https://pypi.org/project/cdclkit-native/) (abi3 wheels for
+Linux and macOS).
 
 ```bash
 python3 -m cdclkit solve instance.cnf --self-check --check-model
@@ -50,15 +58,19 @@ puzzle, graph colouring, bounded model checking, circuit equivalence.
 | `portfolio` | parallel configurations |
 | `pyeq` | **experimental** — bounded equivalence of two Python integer functions |
 
-An optional Rust engine (`pip install cdclkit[native]`) is roughly 18x faster
+An optional Rust engine ([`cdclkit-native`](https://pypi.org/project/cdclkit-native/))
+is roughly 18x faster
 and **bit-exact** with the Python one: identical conflicts, decisions and
 propagations on every instance. The pure-Python path has zero third-party
 dependencies and is the one that must never break.
 
 ## Relationship to dratify
 
-Proof checking lives in a separate package, [`dratify`](https://github.com/carlok/dratify),
-which `cdclkit` depends on. That split is deliberate:
+Proof checking lives in a separate package,
+[`dratify`](https://pypi.org/project/dratify/)
+([source](https://github.com/carlok/dratify), also a
+[Rust crate](https://crates.io/crates/dratify)), which `cdclkit` depends on.
+That split is deliberate:
 
 - You should not have to install a SAT solver to verify a proof someone else
   produced.
@@ -67,7 +79,9 @@ which `cdclkit` depends on. That split is deliberate:
   solver rather than only by its own suite.
 
 `dratify` has no dependencies of its own, so installing `cdclkit` pulls in no
-third-party code.
+third-party code. With `[native]`, `cdclkit-native` hands its compiled checker
+to `dratify` through `register_native()`, so proof checking gets the Rust
+implementation too rather than only the solver.
 
 ## Performance
 
