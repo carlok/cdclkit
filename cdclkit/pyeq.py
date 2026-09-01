@@ -523,6 +523,12 @@ def _definitely_returns(body: list[ast.stmt]) -> bool:
     return False
 
 
+def _parameter_names(fn: Callable) -> tuple[str, ...]:
+    """Positional parameter names, in order, as the compiler sees them."""
+    tree = _function_ast(fn)
+    return tuple(a.arg for a in tree.args.args)
+
+
 def _function_ast(fn: Callable) -> ast.FunctionDef:
     try:
         src = textwrap.dedent(inspect.getsource(fn))
@@ -594,12 +600,15 @@ class EquivalenceResult:
     ``is True`` / ``is None`` explicitly.
     """
 
-    __slots__ = ("proved", "counterexample", "width", "vars", "clauses",
+    __slots__ = ("python_error",
+                 "proved", "counterexample", "width", "vars", "clauses",
                  "seconds", "outputs", "python_outputs", "overflow_only",
                  "proof_checked", "proof_steps", "conflicts")
 
     def __init__(self) -> None:
         self.proved: bool | None = False
+        #: why the Python cross-check was skipped, if it was
+        self.python_error: str | None = None
         #: True when a DRAT proof of the UNSAT miter was replayed and accepted
         self.proof_checked: bool = False
         #: length of that proof, in steps
@@ -683,7 +692,14 @@ def _solve_miter(formula: CNF, engine: str, budget: int | None, want_proof: bool
     and checking it against the miter would fail. Given a choice between a
     faster solve and a checkable one, this module takes the checkable one.
     """
-    if engine == "native" and _native_available():
+    if engine == "native" and not _native_available():
+        from . import native
+
+        raise RuntimeError(
+            "engine='native' was requested but the native engine is not "
+            "installed (pip install \"cdclkit[native]\"); use engine='auto' to "
+            "fall back to Python. " + native.build_hint())
+    if engine in ("native", "auto") and _native_available():
         from . import native
         from dratify.lits import from_dimacs
 
@@ -718,7 +734,7 @@ def equivalent(
     f: Callable,
     g: Callable,
     widths: dict[str, int],
-    engine: str = "native",
+    engine: str = "auto",
     verify: bool = True,
     max_conflicts: int | None = None,
 ) -> EquivalenceResult:
@@ -726,6 +742,12 @@ def equivalent(
 
     `widths` maps each parameter name to its bit width. Both functions must
     take the same parameters.
+
+    `engine` is "auto" by default: native when it is installed, Python
+    otherwise. Asking for "native" explicitly raises when it is missing rather
+    than quietly running the other engine -- a silent downgrade made
+    `test_both_engines_prove_it_and_both_proofs_verify` compare Python against
+    Python and pass.
 
     `verify` (on by default) makes the solver emit a DRAT proof of the
     equivalence and replays it through an independent checker before
@@ -742,6 +764,21 @@ def equivalent(
     so it is never spurious.
     """
     import time
+
+    # "Both functions must take the same parameters" is documented above and was
+    # never checked. compile_function derives each circuit's internal width from
+    # *its own* parameters, so mismatched signatures compile constants at
+    # different widths and produce a counterexample on functions that are
+    # character-identical. The bare except below then hid the TypeError that
+    # would have shown it.
+    names_f = _parameter_names(f)
+    names_g = _parameter_names(g)
+    if names_f != names_g:
+        raise UnsupportedConstruct(
+            f"{getattr(f, '__name__', f)} takes {names_f} and "
+            f"{getattr(g, '__name__', g)} takes {names_g}. Equivalence is only "
+            f"defined for the same inputs, and differing signatures would be "
+            f"compiled at different widths.")
 
     t0 = time.perf_counter()
     formula = CNF()
@@ -819,6 +856,12 @@ def equivalent(
         fv, gv = f(**r.counterexample), g(**r.counterexample)
         r.python_outputs = (fv, gv)
         r.overflow_only = (fv == gv)
-    except Exception:
-        r.python_outputs = None  # not every function accepts the raw ints
+    except (ArithmeticError, ValueError) as exc:
+        # A genuine refusal by the function itself -- division by zero on this
+        # input, say. Anything else (a TypeError from a signature mismatch, an
+        # AttributeError from a bad model) is a bug here, not a property of the
+        # counterexample, and swallowing it disables this cross-check exactly
+        # when it would have caught something.
+        r.python_outputs = None
+        r.python_error = f"{type(exc).__name__}: {exc}"
     return r

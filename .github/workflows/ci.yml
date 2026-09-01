@@ -33,7 +33,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install dratify
-      - run: python tests/coverage_report.py
+      - run: python tests/coverage_report.py --min 72
 
   examples:
     runs-on: ubuntu-latest

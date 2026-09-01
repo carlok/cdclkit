@@ -105,7 +105,23 @@ def cmd_solve(args) -> int:
     if getattr(args, "adaptive", False):
         from .pipeline import solve_adaptive
 
-        pr = solve_adaptive(f, engine="native" if _native_ok() else "python")
+        # Everything below used to be dropped here: cfg, the proof sink and the
+        # conflict budget were all built above and none reached the pipeline.
+        # `--adaptive --self-check` printed "s UNSATISFIABLE" and checked
+        # nothing, which is the one thing this project claims not to do.
+        jobs = getattr(args, "jobs", None) or 1
+        if proof_sink is not None and jobs > 1:
+            print("c error: a proof cannot be logged from a parallel portfolio "
+                  "(workers race and their steps interleave); drop -j or drop "
+                  "--proof/--self-check")
+            return EXIT_ERROR
+        pr = solve_adaptive(
+            f,
+            engine="native" if _native_ok() else "python",
+            config=cfg,
+            jobs=jobs,
+            proof=proof_sink,
+        )
         print(pr.report())
         print(f"c {pr.conflicts} conflicts in {pr.seconds:.3f}s")
         if pr.sat:
@@ -120,7 +136,10 @@ def cmd_solve(args) -> int:
                 _emit_model(pr.model)
             return EXIT_SAT
         print("s UNSATISFIABLE")
-        return EXIT_UNSAT
+        # The proof covers preprocessing *and* the search, so it is checked
+        # against the original formula, not the reduced one.
+        return _finish_unsat(args, original if original is not None else f,
+                             mem_proof, proof_sink)
 
     jobs = args.jobs
     if jobs is not None and jobs > 1:
@@ -167,9 +186,23 @@ def cmd_solve(args) -> int:
         return EXIT_SAT
 
     print("s UNSATISFIABLE")
+    return _finish_unsat(args, original, mem_proof, proof_sink)
+
+
+def _finish_unsat(args, formula, mem_proof, proof_sink) -> int:
+    """Self-check or write out the proof, then report.
+
+    Shared by the ordinary and the adaptive paths. It was inline in one of
+    them, which is how the adaptive path came to skip it entirely: the flag
+    was accepted, the branch returned early, and nothing said so.
+
+    `formula` is the *original* input. When the adaptive pipeline
+    preprocesses, its steps are logged first, so the combined proof is a
+    refutation of what the user handed in rather than of the reduced formula.
+    """
     if mem_proof is not None:
         t0 = time.perf_counter()
-        res = check_proof(original, mem_proof)
+        res = check_proof(formula, mem_proof)
         print(f"c proof self-check took {time.perf_counter()-t0:.3f}s "
               f"({len(mem_proof.steps)} steps)")
         for line in res.report().splitlines():
@@ -405,12 +438,20 @@ def build_parser() -> argparse.ArgumentParser:
                         "turns out to be hard enough to repay it")
     s.add_argument("--prep-rounds", type=int, default=3)
     s.add_argument("--conflicts", type=int, default=None, help="conflict budget")
-    s.add_argument("--restart", default="glucose", choices=["glucose", "luby", "none"])
-    s.add_argument("--var-decay", type=float, default=0.8)
-    s.add_argument("--ccmin", default="deep", choices=["deep", "basic", "none"])
-    s.add_argument("--no-phase-saving", action="store_true")
-    s.add_argument("--rnd-freq", type=float, default=0.0)
-    s.add_argument("--seed", type=int, default=91648253)
+    # Every search default comes from Config() rather than a literal. They were
+    # literals, and --restart drifted to "glucose" while the library moved to
+    # "luby" -- so the CLI quietly ran the policy the CHANGELOG says was
+    # replaced, and the headline measurement did not describe `cdclkit solve`.
+    _d = Config()
+    s.add_argument("--restart", default=_d.restart,
+                   choices=["glucose", "luby", "none"])
+    s.add_argument("--var-decay", type=float, default=_d.var_decay)
+    s.add_argument("--ccmin", default=_d.ccmin, choices=["deep", "basic", "none"])
+    s.add_argument("--no-phase-saving", action="store_true",
+                   help="phase saving is on by default"
+                        if _d.phase_saving else "phase saving is off by default")
+    s.add_argument("--rnd-freq", type=float, default=_d.rnd_freq)
+    s.add_argument("--seed", type=int, default=_d.rnd_seed)
     s.add_argument("--no-model", action="store_true", help="suppress the v lines")
     s.add_argument("--jobs", "-j", type=int, default=None,
                    metavar="N",

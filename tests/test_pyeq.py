@@ -19,6 +19,8 @@ from __future__ import annotations
 import itertools
 import unittest
 
+from cdclkit import native
+
 from cdclkit.pyeq import UnsupportedConstruct, equivalent
 
 
@@ -216,8 +218,24 @@ class TestOperatorSemantics(unittest.TestCase):
     W = 5
 
     def _same_as_python(self, fn, reference, label):
-        """`fn` is compiled; `reference` is plain Python. They must agree."""
-        r = equivalent(fn, reference, widths={"x": self.W})
+        """The circuit for `fn` must match what Python computes for `fn`.
+
+        This used to call `equivalent(fn, reference)`, which compiles *both*
+        arguments -- so Python never ran and the assertion said only that pyeq
+        agreed with itself. A logical instead of arithmetic `>>` would have
+        compiled `shr` and `div2` to the same wrong circuit and passed.
+
+        `exhaustive_agree` is the oracle the class docstring already pointed
+        at: it enumerates every input at this width and runs the plain Python
+        function. `equivalent` still gets asserted alongside it, so a
+        disagreement between the two is visible rather than one replacing the
+        other.
+        """
+        widths = {"x": self.W}
+        ok, cex = exhaustive_agree(fn, reference, widths)
+        self.assertTrue(ok, f"{label}: the compiled function and plain Python "
+                            f"disagree at {cex}")
+        r = equivalent(fn, reference, widths=widths)
         self.assertTrue(r.proved, f"{label}: {r.report()}")
 
     def test_bitwise_operators(self):
@@ -417,6 +435,9 @@ class TestProvedMeansChecked(unittest.TestCase):
         self.assertGreater(r.proof_steps, 0, "a proof of zero steps proves nothing")
         self.assertIn("verified", r.report())
 
+    @unittest.skipUnless(native.available(),
+                         "needs the native engine; without it this compared "
+                         "Python against Python and passed")
     def test_both_engines_prove_it_and_both_proofs_verify(self):
         """Both engines must produce a *checkable* proof. Not the same one.
 

@@ -31,6 +31,7 @@ import time
 from typing import Sequence
 
 from dratify.cnf import CNF
+from dratify.lits import from_dimacs
 from .solver import Config, Solver
 
 __all__ = ["solve_adaptive", "PipelineResult"]
@@ -74,8 +75,27 @@ def _native_available() -> bool:
     return native.available()
 
 
+def _drain_native_proof(obj, proof) -> None:
+    """Copy a native stage's logged steps into `proof`, in order.
+
+    Both the native Solver and the native Preprocessor accumulate steps and
+    hand them over at the end, where the Python versions write to a sink as
+    they go. Concatenating them preserves DRAT's only ordering requirement:
+    a clause must be justified by what precedes it, and preprocessing precedes
+    the search.
+    """
+    if proof is None:
+        return
+    for kind, lits in obj.proof_steps():
+        internal = [from_dimacs(d) for d in lits]
+        if kind == "d":
+            proof.delete(internal)
+        else:
+            proof.add(internal)
+
+
 def _solve(f: CNF, cfg: Config, budget: int | None, engine: str,
-           seconds: float | None = None):
+           seconds: float | None = None, proof=None):
     """Returns (status, model, conflicts).  status None means budget exhausted."""
     if engine == "native":
         from . import native
@@ -94,15 +114,20 @@ def _solve(f: CNF, cfg: Config, budget: int | None, engine: str,
             glue_keep=cfg.glue_keep, block_restart=cfg.block_restart,
             rnd_freq=cfg.rnd_freq, rnd_seed=cfg.rnd_seed,
         )
+        if proof is not None:
+            s.enable_proof()  # must precede the first clause
         for c in f.clauses:
             if not s.add_clause(list(c)):
+                _drain_native_proof(s, proof)
                 return False, None, s.conflicts
         res = s.solve(budget, seconds)
         if res is None:
             return None, None, s.conflicts
+        if not res:
+            _drain_native_proof(s, proof)
         return res, (list(s.model) if res else None), s.conflicts
 
-    s = Solver(f.nvars, config=cfg)
+    s = Solver(f.nvars, config=cfg, proof=proof)
     if not s.add_cnf(f):
         return False, None, s.stats.conflicts
     res = s.solve(max_conflicts=budget, deadline=(
@@ -112,17 +137,22 @@ def _solve(f: CNF, cfg: Config, budget: int | None, engine: str,
     return res, (list(s.model) if res else None), s.stats.conflicts
 
 
-def _preprocess(f: CNF, engine: str):
+def _preprocess(f: CNF, engine: str, proof=None):
     """Returns (reduced_formula, unsat, reconstruct_fn, seconds)."""
     t0 = time.perf_counter()
     if engine == "native" and _native_available():
         from . import native
 
         n = native.require()
-        p = n.Preprocessor(f.nvars)
+        # with_proof is off by default; without it the native
+        # preprocessor logs nothing and the solver's proof ends up
+        # being about the *reduced* formula, which does not check
+        # against the original.
+        p = n.Preprocessor(f.nvars, with_proof=proof is not None)
         for c in f.clauses:
             p.add_clause(list(c))
         p.run(3)
+        _drain_native_proof(p, proof)
         red = CNF(f.nvars)
         for c in p.reduced():
             red.add(c)
@@ -131,7 +161,7 @@ def _preprocess(f: CNF, engine: str):
 
     from .preprocess import Preprocessor
 
-    p = Preprocessor(f)
+    p = Preprocessor(f, proof=proof)
     red = p.run()
     return red, p.unsat, p.reconstruct, time.perf_counter() - t0
 
@@ -145,6 +175,7 @@ def solve_adaptive(
     never_preprocess: bool = False,
     jobs: int = 1,
     seconds: float | None = None,
+    proof=None,
 ) -> PipelineResult:
     """Solve `f`, preprocessing only when a short probe says it is worth it.
 
@@ -162,13 +193,22 @@ def solve_adaptive(
     cfg = config or Config()
     if engine == "native" and not _native_available():
         engine = "python"
+    if proof is not None and jobs > 1:
+        # Portfolio workers race; whichever finishes first is the one whose
+        # refutation is returned, and the others' steps would interleave into
+        # a stream that justifies nothing. Refuse rather than emit a proof
+        # that will not check.
+        raise ValueError(
+            "a proof cannot be logged from a parallel portfolio: workers race "
+            "and their steps would interleave. Use jobs=1 when proof is set.")
 
     r = PipelineResult()
     r.clauses_before = f.nclauses
     t_start = time.perf_counter()
 
     if not never_preprocess and not always_preprocess:
-        status, model, conflicts = _solve(f, cfg, probe, engine)
+        # The probe is a real solve and may refute outright, so it logs too.
+        status, model, conflicts = _solve(f, cfg, probe, engine, proof=proof)
         r.probe_conflicts = conflicts
         if status is not None:
             r.sat, r.model, r.conflicts = status, model, conflicts
@@ -177,13 +217,14 @@ def solve_adaptive(
             return r
 
     if never_preprocess:
-        status, model, conflicts = _solve(f, cfg, None, engine, seconds)
+        status, model, conflicts = _solve(f, cfg, None, engine, seconds,
+                                          proof=proof)
         r.sat, r.model, r.conflicts = status, model, conflicts
         r.seconds = time.perf_counter() - t_start
         r.clauses_after = f.nclauses
         return r
 
-    red, unsat, reconstruct, prep_s = _preprocess(f, engine)
+    red, unsat, reconstruct, prep_s = _preprocess(f, engine, proof=proof)
     r.preprocessed = True
     r.prep_seconds = prep_s
     r.clauses_after = red.nclauses
@@ -199,12 +240,14 @@ def solve_adaptive(
         # preprocess_workers=0 because this formula is *already* preprocessed;
         # asking for preprocessing workers here would both redo the work and
         # force the process-based path, paying ~60 ms of startup for nothing
-        pr = solve_portfolio(red, jobs=jobs, engine=engine, preprocess_workers=0)
+        pr = solve_portfolio(red, jobs=jobs, engine=engine,
+                             preprocess_workers=0, timeout=seconds)
         status = pr.sat
         model = pr.model
         conflicts = pr.stats.get("conflicts", 0)
     else:
-        status, model, conflicts = _solve(red, cfg, None, engine, seconds)
+        status, model, conflicts = _solve(red, cfg, None, engine, seconds,
+                                          proof=proof)
     r.conflicts = conflicts + r.probe_conflicts
     r.sat = status
     if status:

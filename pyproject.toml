@@ -29,7 +29,7 @@ classifiers = [
 # The only dependency is the proof checker, which itself has none. The solver
 # uses it to check its own refutations, so the checker is exercised by every
 # test run here as well as by its own suite.
-dependencies = ["dratify>=0.1.1"]
+dependencies = ["dratify>=0.1.3"]
 
 [project.optional-dependencies]
 # The Rust accelerator, as abi3 wheels for Linux and macOS. Pinned exactly:
