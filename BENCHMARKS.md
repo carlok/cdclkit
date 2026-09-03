@@ -80,8 +80,11 @@ per-instance ratios over 17 instances, spread 11x to 51x. Both are complete
 implementations; the Rust is a port, not a core with bindings.
 
 The figure comes from the `python` and `native` checkpoints in
-`bench/history.jsonl`, which were recorded in one session on one machine
-against the same competitors; `make history` prints them. A sum of wall times
+`bench/history.jsonl`, recorded 34 seconds apart at the same commit on one
+machine against the same competitors; `make history` prints them. It is one
+sample per instance, so treat the geometric mean as the result and any single
+ratio as an illustration — in the sibling project's harness, individual ratios
+moved by a third between runs while the mean held to within 0.2x. A sum of wall times
 over the same data gives 22.5x, which is why this document quotes the geometric
 mean instead — see the rules in `docs/RELEASING.md`.
 
@@ -89,8 +92,10 @@ mean instead — see the rules in `docs/RELEASING.md`.
 
 Proof checking now lives in [`dratify`](https://github.com/carlok/dratify), and
 its numbers are in that repository, reproducible with `python bench/repro.py`
-there. Summary: the Rust checker runs 12x to 17.5x over pure Python, growing
-with proof size, and is slower than `drat-trim` because it checks *forward*
+there. Summary: the Rust checker averages roughly 15x over pure Python (per-run
+geometric mean; individual instances range 11x-22x and move between runs),
+growing with proof size, and is slower than `drat-trim` because it checks
+*forward*
 against drat-trim's backward checking — it verifies every step, including the
 ones a backward pass never visits.
 

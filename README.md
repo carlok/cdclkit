@@ -113,9 +113,11 @@ An optional Rust engine ([`cdclkit-native`](https://pypi.org/project/cdclkit-nat
 is **bit-exact** with the Python one — identical conflicts, decisions and
 propagations on every instance — and about **20x faster**: the geometric mean
 of per-instance ratios over the 17 benchmark instances is 20.1x, ranging from
-11x to 51x. Regenerate it with `make history` (the `python` and `native`
-checkpoints in `bench/history.jsonl`); see [BENCHMARKS.md](BENCHMARKS.md) for
-the method. The pure-Python path has zero third-party
+11x to 51x. That comes from two checkpoints recorded 34 seconds apart at the
+same commit, one sample per instance — good enough for the mean, not for any
+single row. Regenerate it with `make history` (the `python` and `native`
+entries in `bench/history.jsonl`); see [BENCHMARKS.md](BENCHMARKS.md) for the
+method. The pure-Python path has zero third-party
 dependencies and is the one that must never break.
 
 ## Relationship to dratify
