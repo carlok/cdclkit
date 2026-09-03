@@ -7,6 +7,82 @@ that covers and what it does not.
 
 ## [Unreleased]
 
+## [0.1.3] — 2026-09-03
+
+### Fixed
+
+- **`--adaptive` ignored `--self-check`, `--proof`, `--conflicts` and every
+  search flag.** The branch built a `Config`, a proof sink and a conflict
+  budget, passed none of them to a pipeline that had no `proof` parameter at
+  all, then printed `s UNSATISFIABLE` and exited 20 having checked nothing.
+  `--check-model` *was* handled, which is what made the omission read as
+  deliberate. `README.md`, `SECURITY.md` and the `demo` target all rest on
+  `--self-check` being honoured.
+
+  Fixing it required logging preprocessing steps, since BVE adds clauses that
+  do not follow from the input — a refutation of the reduced formula is not one
+  of the original. Writing that test found a second, latent bug: the native
+  `Preprocessor` takes a `with_proof` flag that nothing ever passed, so it
+  logged zero steps where Python logged twelve. Anyone wiring this up would
+  have produced an invalid proof. Both engines now agree, and the test asserts
+  the combined proof verifies against the **original** formula.
+- **The CLI ran a different solver than the library.** `--restart` defaulted to
+  `"glucose"` while `Config.restart` had moved to `"luby"`, so the headline
+  benchmark below never described `cdclkit solve`. Every CLI default now
+  derives from `Config()`, with a test asserting it.
+- `solve_adaptive` dropped its deadline on the parallel path, the one parameter
+  that exists because a par32 instance once ran 77 minutes past a 120s budget.
+- `pyeq.equivalent` documented "both functions must take the same parameters"
+  and never checked it, so comparing `f(a, b)` with `g(a)` compiled constants
+  at different widths and reported a false counterexample on identical source.
+  A bare `except Exception` then swallowed the `TypeError` that would have
+  exposed it. `engine="native"` also fell back to Python silently; it now
+  raises, matching `dratify`.
+- `dpll` raised `IndexError` on a formula containing the empty clause.
+- **The Rust checker was pinned two releases behind the Python one.**
+  `native/Cargo.toml` asked for `dratify 0.1.0` while `pyproject.toml` required
+  0.1.2 — two implementations, two releases apart, in one process, sold as
+  cross-checking each other. Both now require 0.1.4, and a test fails if they
+  diverge again.
+
+### Documentation
+
+The prose had drifted from the program in ways a reader would have caught.
+
+- `docs/RELEASING.md` — the document consulted while performing this project's
+  one irreversible action — opened by saying the repository is private and
+  unlicensed, and linked a `docs/LICENSING.md` that was never written. The repo
+  is public and Apache-2.0, and publishing is automated.
+- `AGENTS.md` was wrong in its two most load-bearing sections: the heading "CLI
+  exit codes are not 0" sat above an enumeration omitting 0, while
+  `EXIT_UNKNOWN` is 0; and the section titled "the single most common error"
+  gave the doubled-index formula without introducing the 0-based internal index
+  it is stated over. `tests/test_agent_docs.py` now guards both.
+- `ALGORITHMS.md` §8 listed rephasing as absent and target phases as off by
+  default; both ship on by default. The Luby docstring sold the optimality
+  theorem while `block_restart` — on by default, and policy-independent though
+  documented only under Glucose — defers the restarts the sequence asks for.
+- **The native speedup is 20.1x, not 18x**: geometric mean of per-instance
+  ratios over 17 instances, spread 11x to 51x. The figure was recoverable only
+  after fixing `make history`, which printed `0.00` for all fifteen recorded
+  checkpoints because it read `totals["cdclkit"]` with a `0.0` default while
+  the file stores `"sable"`.
+
+### Added
+
+- A CI job running the conflict-count baseline. `make gate` had always run it;
+  CI never did, so the only guard against a change altering search behaviour
+  fired when a human remembered to type it.
+- The coverage floor is enforced at 72% against a measured 75.9%. `--min`
+  defaulted to `0.0` and the guard tested truthiness, so the documented floor
+  existed nowhere.
+- Both release workflows run the suite on the tagged commit and refuse a tag
+  naming a different version. `ci.yml` does not trigger on tags, so nothing had
+  tested a released ref.
+- `CONTRIBUTING.md`. `make test` on a fresh clone failed with 24 import errors,
+  because the Makefile still said "No dependencies" from before this package
+  depended on `dratify`.
+
 ### Changed
 
 - **Default search is Luby restarts with target phases**, replacing Glucose EMA

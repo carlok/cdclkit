@@ -1,6 +1,6 @@
 [package]
 name = "cdclkit-native"
-version = "0.1.2"
+version = "0.1.3"
 license = "Apache-2.0"
 edition = "2021"
 rust-version = "1.70"
@@ -23,7 +23,7 @@ extension-module = ["pyo3/extension-module"]
 [dependencies]
 # The proof checker lives in its own crate. This used to be a byte-identical
 # copy of it, which is a divergence bug waiting to happen.
-dratify = "0.1.3"
+dratify = "0.1.4"
 pyo3 = { version = "0.29", features = ["abi3-py310"] }
 
 # Measured, not assumed.  These three are the settings that pay; two further

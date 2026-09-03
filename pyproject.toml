@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cdclkit"
-version = "0.1.2"
+version = "0.1.3"
 description = "A CDCL SAT solver, preprocessor, encoding library and modelling layer, written from scratch in readable Python. Every answer comes with a certificate."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -29,13 +29,13 @@ classifiers = [
 # The only dependency is the proof checker, which itself has none. The solver
 # uses it to check its own refutations, so the checker is exercised by every
 # test run here as well as by its own suite.
-dependencies = ["dratify>=0.1.3"]
+dependencies = ["dratify>=0.1.4"]
 
 [project.optional-dependencies]
 # The Rust accelerator, as abi3 wheels for Linux and macOS. Pinned exactly:
 # the two are bit-exact by construction and a mismatched pair is a divergence
 # nobody would look for. tests/test_packaging.py enforces the pin.
-native = ["cdclkit-native==0.1.2"]
+native = ["cdclkit-native==0.1.3"]
 
 [project.scripts]
 cdclkit = "cdclkit.__main__:main"
