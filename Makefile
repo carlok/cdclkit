@@ -1,10 +1,11 @@
-# cdclkit -- pure-Python CDCL SAT toolkit.  No dependencies, no build step.
+# cdclkit -- pure-Python CDCL SAT toolkit.  No build step; the only runtime
+# dependency is `dratify`, the proof checker (`pip install -e .` pulls it in).
 PYTHON ?= python3
 
 .PHONY: help test test-verbose test-native native venv coverage examples bench bench-check bench-full compare bench-public gate checkpoint history portfolio paper private-docs demo dist smoke repro clean clean-dist clean-native lint
 
 help:
-	@echo "make test      -- run the full test suite, no Rust needed (197 tests)"
+	@echo "make test      -- run the full test suite, no Rust needed"
 	@echo "make native    -- build the optional Rust engine into .venv (needs cargo)"
 	@echo "make test-native-- run the suite against the native build"
 	@echo "make coverage  -- statement coverage via the stdlib trace module (slow)"

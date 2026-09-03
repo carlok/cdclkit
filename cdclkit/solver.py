@@ -49,9 +49,14 @@ deletion, and the LBD moving averages drive the restart policy.
 
 *Restarts.*  Two policies.  Luby: the reluctant-doubling sequence, provably
 optimal up to a log factor for heavy-tailed runtimes.  Glucose EMA: restart
-when the recent LBD average is much worse than the long-run one, with a
-blocking rule that suppresses the restart when the trail is unusually deep
-(which suggests the current branch is close to a model).
+when the recent LBD average is much worse than the long-run one.
+
+Independently of either, a *blocking* rule defers a restart when the trail is
+unusually deep (which suggests the current branch is close to a model).  It is
+on by default and it applies to both policies, so the schedule that actually
+runs under `restart="luby"` is Luby *with deferrals* -- the optimality result
+above is a statement about the unblocked sequence, and does not carry over.
+Set `block_restart=False` for the sequence the theorem describes.
 
 Luby is the default, paired with target phases.  Glucose EMA was the default
 for most of this project's life on the reasoning that unsatisfiable instances
@@ -126,7 +131,13 @@ UNKNOWN = "UNKNOWN"
 
 
 class Config:
-    """Tunable solver parameters.  Defaults follow Glucose 4 closely."""
+    """Tunable solver parameters.
+
+    The clause-database and decision-heuristic defaults follow Glucose 4.  The
+    search defaults no longer do: restarts are Luby, target phases are on, and
+    probSAT rephasing runs -- each because it measured better here, not because
+    Glucose does it.  See the module docstring and `docs/ALGORITHMS.md` §4.
+    """
 
     __slots__ = (
         "var_decay",
@@ -168,7 +179,9 @@ class Config:
         # has ever been.
         #
         # On by default, with `restart="luby"`, because the pair was measured
-        # at 1.62x -> 0.84x against kissat over 203 public instances. Neither
+        # at 1.62x -> 0.84x against kissat over the 203 public instances both
+        # solvers decided within the budget. That was run before the corpus
+        # grew to 344 (see CHANGELOG) and has not been repeated since. Neither
         # half is worth much alone (target alone 0.97, luby alone 0.75): a
         # target is only useful if the restart schedule leaves the search long
         # enough to reach it. See docs/ALGORITHMS.md.

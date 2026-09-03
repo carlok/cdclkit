@@ -7,7 +7,7 @@ Every answer comes with a certificate, and the certificate gets checked.
 
 ```bash
 pip install cdclkit              # pure Python
-pip install "cdclkit[native]"    # plus the Rust engine, ~18x faster
+pip install "cdclkit[native]"    # plus the Rust engine, ~20x faster
 ```
 
 Three packages, and no third-party code:
@@ -94,7 +94,8 @@ Note the shape: `solve()` returns a **tuple**, so `if solve(f):` is always
 true. Unpack it.
 
 Worked examples live in `examples/` — Sudoku with a uniqueness proof, the zebra
-puzzle, graph colouring, bounded model checking, circuit equivalence.
+puzzle, graph colouring, bounded model checking, circuit equivalence, and
+checking a refactored Python function against the original.
 
 ## What's in it
 
@@ -109,9 +110,12 @@ puzzle, graph colouring, bounded model checking, circuit equivalence.
 | `pyeq` | **experimental** — bounded equivalence of two Python integer functions |
 
 An optional Rust engine ([`cdclkit-native`](https://pypi.org/project/cdclkit-native/))
-is roughly 18x faster
-and **bit-exact** with the Python one: identical conflicts, decisions and
-propagations on every instance. The pure-Python path has zero third-party
+is **bit-exact** with the Python one — identical conflicts, decisions and
+propagations on every instance — and about **20x faster**: the geometric mean
+of per-instance ratios over the 17 benchmark instances is 20.1x, ranging from
+11x to 51x. Regenerate it with `make history` (the `python` and `native`
+checkpoints in `bench/history.jsonl`); see [BENCHMARKS.md](BENCHMARKS.md) for
+the method. The pure-Python path has zero third-party
 dependencies and is the one that must never break.
 
 ## Relationship to dratify
@@ -154,7 +158,7 @@ otherwise.
 ## Honest limitations
 
 - **No Windows.** Never tested; the classifiers say so rather than implying support.
-- Pure Python is ~18x slower than its own Rust port, which is itself far from
+- Pure Python is ~20x slower than its own Rust port, which is itself far from
   kissat. Not a tool for competition-scale instances.
 - No inprocessing, no XOR/Gaussian reasoning. Parity families are a known
   weakness and `bench/` includes one to keep that visible.

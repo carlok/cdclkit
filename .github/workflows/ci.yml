@@ -35,6 +35,21 @@ jobs:
       - run: pip install dratify
       - run: python tests/coverage_report.py --min 72
 
+  # `make gate` has always run this; CI never did, so the only guard against a
+  # change that alters search behaviour fired solely when a human remembered
+  # to type it. It compares conflict counts, which are deterministic and
+  # machine-independent, so it is a real gate rather than a timing flake.
+  baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: pip install dratify
+      - name: conflict counts must match bench/baseline.json
+        run: python bench/run_bench.py --quick --configs all --check-baseline
+
   examples:
     runs-on: ubuntu-latest
     steps:

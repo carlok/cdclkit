@@ -17,9 +17,14 @@ one.
 
 ## Internal literals are non-negative
 
-DIMACS uses signed integers. This library does not. Variable `v` has literals
-`2v` (positive) and `2v + 1` (negated), because that makes array indexing
-direct in the solver's hot loops.
+DIMACS uses signed integers. This library does not. Internally, variables are
+numbered from **0**, and the 0-based variable `v` has literals `2v` (positive)
+and `2v + 1` (negated), because that makes array indexing direct in the
+solver's hot loops.
+
+Mind the two numbering bases. DIMACS variable `d` is internal variable `d - 1`,
+so DIMACS `1` is internal literal `0` and DIMACS `-1` is internal literal `1` —
+not `2` and `3`.
 
 ```python
 enc.add([neg(a), neg(b)])        # correct
@@ -55,10 +60,12 @@ so `if result.proved:` silently treats "undecided" as "differs". Test
 the 0/105 result in `experiments/pyeq-llm-refactor/report.md` before building
 on it.
 
-## CLI exit codes are not 0
+## CLI exit codes follow the SAT competition, not the shell
 
-SAT competition convention: `10` satisfiable, `20` unsatisfiable, `30` proof
-rejected, `1` error. A shell script expecting `0` will read success as failure.
+`10` satisfiable, `20` unsatisfiable, `30` proof rejected, `1` error, and `0`
+only for *unknown* — a conflict budget that ran out without deciding the
+formula. A shell script expecting `0` to mean success reads a solved instance
+as a failure, and an undecided one as a success. Both directions are wrong.
 
 ## The native engine is opt-in
 

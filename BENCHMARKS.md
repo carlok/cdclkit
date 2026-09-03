@@ -75,15 +75,24 @@ Stated because a benchmark section that only lists wins is marketing.
 ## Python against Rust
 
 The Rust engine is **bit-exact** with the Python one — identical conflicts,
-decisions and propagations — and roughly 18x faster. Both are complete
+decisions and propagations — and about **20x faster**: geometric mean 20.1x of
+per-instance ratios over 17 instances, spread 11x to 51x. Both are complete
 implementations; the Rust is a port, not a core with bindings.
+
+The figure comes from the `python` and `native` checkpoints in
+`bench/history.jsonl`, which were recorded in one session on one machine
+against the same competitors; `make history` prints them. A sum of wall times
+over the same data gives 22.5x, which is why this document quotes the geometric
+mean instead — see the rules in `docs/RELEASING.md`.
 
 ## Proof checking
 
 Proof checking now lives in [`dratify`](https://github.com/carlok/dratify), and
-its numbers are in that repository. Summary: the Rust checker is ~18x over pure
-Python, and within 1.75x of `drat-trim` on a 209,367-step proof while checking
-*forward* against drat-trim's backward checking.
+its numbers are in that repository, reproducible with `python bench/repro.py`
+there. Summary: the Rust checker runs 12x to 17.5x over pure Python, growing
+with proof size, and is slower than `drat-trim` because it checks *forward*
+against drat-trim's backward checking — it verifies every step, including the
+ones a backward pass never visits.
 
 ## Reproducing
 

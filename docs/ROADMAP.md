@@ -47,11 +47,16 @@ Checker, this machine, 2026-08-29:
 | uuf100-010 | 1,103 | 0.05s | 0.00s | 0.06s |
 | uuf250-01 | 209,367 | 41.47s | 2.27s | 1.30s |
 
-Rust is 18x over Python. It beats drat-trim 7-22x on small proofs (drat-trim
-pays process startup and cannot be called in-process) and loses 1.75x on the
-large one -- while doing *forward* checking against drat-trim's backward
-checking. That gap is the honest headline, and closing it is not required to
-ship.
+These figures predate the split into two packages and were never reproducible
+from a checkout. The checker now lives in `dratify`, and `bench/repro.py` there
+regenerates the comparison from scratch -- generating the instances, obtaining
+proofs from every solver on PATH, and cross-checking drat-trim when installed.
+Quote that output, not this table.
+
+The shape of the result holds: Rust is roughly 12-17x over Python, growing with
+proof size, and loses to drat-trim on large proofs while doing *forward*
+checking against drat-trim's backward checking. That gap is the honest
+headline, and closing it is not required to ship.
 
 Cross-validation against the reference checker, 10 proofs from two solvers:
 **drat-trim and cdclkit agreed on all 10**, including four rejections.
@@ -116,13 +121,16 @@ support.
       `_Compiler.assign()` (`pyeq.py:447-452`) describes a select that happens
       elsewhere; `BitVec.slt()` claims a signed-overflow XOR where the code
       widens by a bit. Both behave correctly; only the prose is wrong.
-- [ ] **`ALGORITHMS.md` section 8** lists rephasing as absent and target phases
-      as "off by default until measured". Both ship on by default.
-- [ ] **The Luby docstring.** `solver.py:50-54` sells Luby's optimality
+- [x] **`ALGORITHMS.md` section 8** listed rephasing as absent and target
+      phases as "off by default until measured". Both ship on by default; §4,
+      §8 and the `Config` docstring now say so.
+- [x] **The Luby docstring.** `solver.py:50-54` sold Luby's optimality
       theorem, but `block_restart=True` is also default and suppresses restarts
       14x (619 -> 44 on a 194,756-conflict run), so the schedule that executes
       is not Luby. Blocking *wins* -- 1.62x faster, 25% fewer conflicts -- so
-      this is a prose fix, not a code fix. Defend it empirically.
+      this was a prose fix, not a code fix. `solver.py` and `ALGORITHMS.md`
+      now say blocking is policy-independent and that the theorem describes
+      the unblocked sequence.
 - [x] **`Config.special_inc`** is declared, defaulted to 1000, and never read.
 
 **Done when:** `grep` finds no reference to a symbol that does not exist, no
@@ -209,27 +217,39 @@ without testing something.
 
 ---
 
-## Sprint 4 -- Publish
+## Sprint 4 -- Publish (done, except the last item)
 
-- [ ] Reserve the name on PyPI **before** announcing anywhere.
-- [ ] Trusted publishing via GitHub OIDC, no long-lived token.
-- [ ] Make the repo public; the URL in `pyproject.toml` currently 404s.
-- [ ] Tag a signed release with wheels, `tex/cdclkit.pdf`, and
-      `bench/baseline.json` attached (see `docs/RELEASING.md`).
+- [x] Reserve the name on PyPI **before** announcing anywhere. The toolkit is
+      `cdclkit`, the accelerator `cdclkit-native`, the checker `dratify`.
+- [x] Trusted publishing via GitHub OIDC, no long-lived token. Both PyPI
+      packages here; `dratify` also publishes the crate to crates.io the same
+      way. Nothing to rotate anywhere.
+- [x] Make the repo public. Apache-2.0.
+- [x] Tag a signed release; pushing a `v*` tag runs the suite on the tagged
+      commit, refuses a tag naming another version, and publishes both
+      packages (see `docs/RELEASING.md`).
 - [ ] Sigstore attestations on the wheels. For a project whose pitch is
       verifiable provenance of *answers*, unverifiable provenance of the
       *artefact* is the obvious hole, and CI already builds them.
 
-**Done when:** `pip install <name>` works from a clean machine and the
-quickstart runs.
+**Done when:** `pip install cdclkit` works from a clean machine and the
+quickstart runs. It does; only the attestations remain.
 
 ---
 
 ## Sprint 5 -- The product
 
-- [ ] **Extract the checker as its own distribution**: pure-Python wheel,
-      optional Rust accelerator, both engines exposed so a caller can demand
-      agreement rather than trust one.
+- [x] **Extract the checker as its own distribution.** Shipped as
+      [`dratify`](https://github.com/carlok/dratify): pure-Python wheel,
+      optional Rust accelerator supplied by `cdclkit-native`, both engines
+      exposed so a caller can demand agreement rather than trust one. A CI job
+      there compares them and fails if the comparison skips.
+- [ ] **Note that CaDiCaL cannot read standard SATLIB files either.** Found
+      while building `dratify/bench/repro.py`: CaDiCaL stops at the trailing
+      `%` with `parse error: expected digit or '-'`, exactly as PySAT does.
+      This parser reads them. That is two of the three most-used tools in the
+      ecosystem, which makes it worth a README line and probably an upstream
+      report — the same probe as the item below.
 - [ ] **File the CaDiCaL/PySAT proof bug.** Reproducible and confirmed: proofs
       obtained through PySAT's `get_proof()` from CaDiCaL153 failed to verify on
       4 of 5 `uuf100` instances, and **drat-trim agrees on all 10 cases tested**.
@@ -267,26 +287,36 @@ comparisons per suite run.
 default-on feature, so `--no-default-features` runs the crate's 24 unit tests
 without libpython. They were unrunnable outside Linux CI before.
 
+## Settled
+
+Questions 1-4 below were open when this file was written. All four are decided,
+and are recorded rather than deleted because the reasoning still applies to the
+next packaging decision.
+
+1. **What is the toolkit renamed to?** `cdclkit`, with the accelerator as
+   `cdclkit-native`. The checker is `dratify`.
+2. **Does the toolkit get published at all?** Yes — PyPI, Apache-2.0.
+3. **Does `dratify` vendor its own copy of the checker, or import it?**
+   Neither: the dependency runs the other way. `dratify` owns `lits`, `cnf` and
+   `proof`, and `cdclkit` depends on it. The divergence risk this question
+   worried about did materialise in a different form — the Rust crate sat
+   pinned two releases behind the Python package — and is now covered by a test
+   asserting both halves require the same version.
+4. **Does the Rust accelerator ship as `cdclkit-native` or its own wheel?**
+   `cdclkit-native`, and `dratify` documents `pip install "cdclkit[native]"`
+   plus `register_native()` rather than advertising an extra it does not have.
+
 ## Open questions
 
-Sprint 0 is closed. What remains undecided:
-
-1. **What is the toolkit renamed to?** `dratify` is the checker. The solver,
-   preprocessor, encodings and modelling layer still live under a name that is
-   taken on PyPI. Free on both registries as of 2026-08-29: `sablesat`,
-   `cdclkit-sat`, `certisat`, `refutex`, `nosat`, `unsatproof`. This only needs
-   deciding before the *toolkit* is published, not before `dratify` is.
-2. **Does the toolkit get published at all**, or does it stay a public repo
-   without a PyPI release? A repo people can read and audit is most of the
-   reputational value; a package is a maintenance commitment.
-3. **Does `dratify` vendor its own copy of the checker, or import it?** Today
-   `packages/dratify/src/dratify/{lits,cnf,proof}.py` is a copy of the files in
-   `cdclkit/`. That is fine for one release and becomes a divergence bug by the
-   third. Either the toolkit depends on `dratify`, or the files get a single
-   home and a sync check in CI.
-4. **Does the Rust accelerator ship as `cdclkit-native` or its own wheel?**
-   `dratify[native]` currently points at `cdclkit-native`, which is the wrong
-   name for a dependency of a package called `dratify`.
-5. **LRAT priority.** It is the bridge to `cake_lpr` (CakeML-verified) and the
-   strongest available addition to the trust story. Sprint 5 as written, but it
-   could reasonably jump ahead of the toolkit rename.
+1. **LRAT priority.** It is the bridge to `cake_lpr` (CakeML-verified) and the
+   strongest available addition to the trust story. It is the next round.
+2. **The six search knobs have no CLI flags.** `Config` exposes
+   `target_phase`, `target_reset`, `walk_flips`, `walk_interval`,
+   `walk_patience`, `walk_min_conflicts` and `block_restart`; `cdclkit solve`
+   exposes none of them. probSAT rephasing cannot be turned off from a shell,
+   so `--restart glucose` alone does not restore the pre-2026 behaviour, and
+   the tuning `ALGORITHMS.md` §4 describes is library-only. Decide whether the
+   CLI is meant to be tunable at all before adding seven flags to it.
+3. **Every performance figure still comes from one host.** Second-machine
+   validation would say which of them are properties of the code and which are
+   properties of this laptop.

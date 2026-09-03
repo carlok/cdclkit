@@ -1,15 +1,29 @@
 # Releasing
 
-The checklist exists so release two is not archaeology. Nothing here is
-automated on purpose: a release is rare enough that the cost of remembering is
-lower than the cost of a workflow that silently rots between uses.
+The checklist exists so release two is not archaeology.
 
 ## Before you start
 
-The repository is **private and unlicensed**. A release today means a tagged
-GitHub release with wheels attached, not a PyPI upload. Publishing to a public
-index is a licence decision first and a packaging step second — see
-[LICENSING.md](LICENSING.md).
+The repository is public and Apache-2.0 (`LICENSE`), and publishing is
+automated. Pushing a `v*` tag runs `.github/workflows/release.yml`, which:
+
+1. runs the full test suite **on the tagged commit**, and fails if the tag does
+   not name the version being built;
+2. builds the pure-Python sdist and wheel, and publishes them to PyPI as
+   [`cdclkit`](https://pypi.org/project/cdclkit/);
+3. builds native wheels per platform plus an sdist, and publishes them as
+   [`cdclkit-native`](https://pypi.org/project/cdclkit-native/).
+
+Both publish steps use **Trusted Publishing** over GitHub OIDC through the
+`pypi` environment. There is no token anywhere, and nothing to rotate.
+
+This repository does **not** publish to crates.io — `native/` is a PyO3
+extension, not a standalone crate. The checker crate is released from
+[dratify](https://github.com/carlok/dratify), which has its own runbook.
+
+Both publish steps set `skip-existing`, so re-running a release is safe. That
+also means a tag pushed *without* a version bump would silently publish nothing
+— which is why step 1 above exists. Trust the failure, not the green tick.
 
 ## 1. The tree has to be honest
 
@@ -18,7 +32,6 @@ make gate                    # tests, examples, conflict baselines
 make test-native             # the same suite against the Rust engine
 cd native && cargo test && cargo clippy --all-targets
 make smoke                   # build both wheels, install clean, run from /
-make paper                   # tex/cdclkit.pdf builds with no warnings
 ```
 
 All green, tree clean, nothing uncommitted.
@@ -29,9 +42,11 @@ This has already happened once — the README said 129 tests when there were 263
 and carried a coverage table from three phases earlier. Check at minimum:
 
 - test count and coverage percentage
-- the competitor tables in the README and `tex/cdclkit.tex`
+- the competitor tables in the README
 - the "Known limitations" list in `CHANGELOG.md`
-- anything in the paper's roadmap that has since shipped
+- anything in `docs/ROADMAP.md` that has since shipped
+- the `~18x` native speedup, and anything else quoting a ratio — regenerate it
+  rather than copying it forward
 
 Any performance figure must be a **geometric mean of per-instance ratios**,
 measured in the same session on the same machine, with each external solver's
@@ -107,10 +122,20 @@ Python minor version and is not expected to reproduce across toolchains.
 ## 5. Tag and release
 
 ```bash
-git tag -s v1.0.0 -m "cdclkit 1.0.0"     # signed; an unsigned tag proves nothing
-git push origin main --follow-tags
-gh release create v1.0.0 --notes-file <(sed -n '/## \[1.0.0\]/,/## \[0/p' CHANGELOG.md) \
-    dist/*.whl dist/*.tar.gz tex/cdclkit.pdf bench/baseline.json
+git tag -s v0.1.3 -m "cdclkit 0.1.3"     # signed; an unsigned tag proves nothing
+git push origin main --follow-tags       # the tag push is what publishes
+```
+
+Then watch the run: `gh run watch $(gh run list -w release -L1 --json databaseId -q '.[0].databaseId')`.
+If the `build` job fails on the version check, the tag names a version the tree
+does not declare — delete the tag, fix the version, tag again. Do not re-run
+the job.
+
+Attach the artefacts to a GitHub release once the workflow is green:
+
+```bash
+gh release create v0.1.3 --notes-file <(sed -n '/## \[0.1.3\]/,/## \[0/p' CHANGELOG.md) \
+    bench/baseline.json
 ```
 
 `bench/baseline.json` goes in deliberately. It is the conflict-count reference
@@ -127,11 +152,10 @@ free.
 Open `[Unreleased]` in the changelog again. If anything in this file was wrong
 or missing while you were following it, fix it now rather than next time.
 
-## If it goes public
+## Still open
 
-Then, and only then, these become relevant, in this order:
-
-1. A licence decision (`docs/LICENSING.md`). Everything else waits on it.
-2. PyPI trusted publishing via GitHub OIDC — no long-lived token anywhere.
-3. Reserve the name on PyPI before announcing it anywhere.
-4. Sigstore attestations, which are worth more once the artefacts are public.
+- **Sigstore attestations** on the wheels. For a project whose pitch is
+  verifiable provenance of *answers*, unverifiable provenance of the *artefact*
+  is the obvious hole, and CI already builds them.
+- **Cross-machine reproducibility** of the pure-Python wheel is plausible and
+  unmeasured. Do not claim it until it is.

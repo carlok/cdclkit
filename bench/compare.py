@@ -276,7 +276,7 @@ class SuspensionDetector:
 # --------------------------------------------------------------------------
 
 
-def run_sable(f: CNF, timeout: float, want_proof: bool = False,
+def run_cdclkit(f: CNF, timeout: float, want_proof: bool = False,
               engine: str = "python", jobs: int | None = None,
               config: "Config | None" = None):
     """Returns (verdict, seconds, model_or_None, conflicts).
@@ -400,12 +400,20 @@ def print_history() -> int:
     print(header)
     print("-" * len(header))
     for e in entries:
-        ours = e["totals"].get("cdclkit", 0.0)
+        # Checkpoints recorded before the project was renamed store our times
+        # under "sable". Reading only the new key made every historical row
+        # print 0.00 -- a `.get(..., 0.0)` default silently turning "recorded
+        # under the old name" into "took no time at all".
+        totals = e["totals"]
+        ours = totals.get("cdclkit", totals.get("sable"))
+        if ours is None:
+            ours = float("nan")
         cells = ""
         for c in competitors:
             g = e.get("geomeans", {}).get(c)
             cells += f"{(f'{g:.2f}x' if g else '-'):>10}"
-        print(f"{e['label']:<17}{e['engine']:<11}{ours:>9.2f}{cells}")
+        shown = "-" if ours != ours else f"{ours:.2f}"
+        print(f"{e['label']:<17}{e['engine']:<11}{shown:>9}{cells}")
     print()
     print("c geometric mean of per-instance ratios; >1 means the competitor is")
     print("c faster.  Instances the competitor finishes in <50 ms are excluded:")
@@ -442,15 +450,15 @@ def compare_instance(label, f: CNF, externals, timeout, tmpdir, check_proofs,
     rows, notes = [], []
     samples: dict[str, list[float]] = {}
 
-    sable_times, verdict, model, conflicts = [], None, None, None
+    our_times, verdict, model, conflicts = [], None, None, None
     for _ in range(repeat):
-        verdict, dt, model, conflicts = run_sable(f, timeout, engine=engine,
+        verdict, dt, model, conflicts = run_cdclkit(f, timeout, engine=engine,
                                                   jobs=jobs, config=config)
-        sable_times.append(dt)
+        our_times.append(dt)
         if verdict == SAT and not f.is_satisfied_by(model):
             notes.append(f"{label}: cdclkit returned an invalid model")
-    samples["cdclkit"] = sable_times
-    dt = statistics.median(sable_times)
+    samples["cdclkit"] = our_times
+    dt = statistics.median(our_times)
     rows.append((label, "cdclkit", verdict, dt, 1.0, conflicts))
     base_time = dt
 

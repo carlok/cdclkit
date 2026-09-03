@@ -153,12 +153,25 @@ sequence is optimal to within a log factor for any distribution of runtimes
 when nothing is known about it (Luby, Sinclair, Zuckerman 1993) — the right
 choice when runtimes are heavy-tailed, which satisfiable instances are.
 
+That optimality is a property of the sequence as stated. With
+`block_restart` on — the default — a restart the sequence calls for is deferred
+whenever the trail is unusually deep, so what executes is not the Luby sequence
+and the theorem does not apply to it. The pairing is kept because it measures
+better (§4), not because the guarantee survives; `block_restart=False` restores
+the sequence the result is about.
+
 **Glucose EMA.** Track a fast (α = 1/50) and a slow (α = 1/5000) exponential
 moving average of learnt-clause LBD. Restart when
 `fast × 0.8 > slow`: recent clauses are markedly worse than the long-run norm,
-so the current region is unproductive. A *blocking* rule suppresses the restart
-when the trail is much deeper than usual (`|trail| > 1.4 × trail_ema`), on the
-theory that an unusually deep trail means a model may be close.
+so the current region is unproductive.
+
+**Blocking applies to both policies, not just this one.** A *blocking* rule
+suppresses a restart when the trail is much deeper than usual
+(`|trail| > 1.4 × trail_ema`), on the theory that an unusually deep trail means
+a model may be close. It is governed by `Config.block_restart` (on by default)
+and runs in the conflict path before the restart policy is consulted, so it
+defers Luby restarts exactly as it defers Glucose ones. See §4's note on what
+that costs the Luby optimality argument.
 
 Both EMAs use Biere's bias correction: the smoothing factor starts at 1 and
 halves on a schedule until it reaches α, so the average is usable immediately
@@ -168,7 +181,9 @@ Glucose EMA **was** the default, on the reasoning that unsatisfiable instances
 dominate the hard cases. Measurement retired both the default and the
 reasoning.
 
-Against kissat over 203 public instances, Luby restarts paired with target
+Against kissat over the 203 public instances both solvers decided within the
+budget — measured before the corpus grew to 344, and not repeated since — Luby
+restarts paired with target
 phases move the geometric mean from **1.62x behind to 0.84x ahead**, and they
 improve both halves rather than trading one for the other:
 
@@ -195,7 +210,7 @@ Its weakness is the same property: it follows the search *wherever it went*,
 including into the region a conflict has just pushed it out of. After a
 backjump the saved phases describe a failure.
 
-**Target phases** (`Config.target_phase`, off by default). Remember instead the
+**Target phases** (`Config.target_phase`, **on** by default). Remember instead the
 assignment from the **deepest conflict-free trail ever reached**, and branch
 from that. Saved phases follow where the search has just been; target phases
 follow the best place it has ever been. On satisfiable instances that is a
@@ -421,11 +436,13 @@ checks exactly that on random instances.
 - **Inprocessing.** Modern solvers interleave preprocessing with search.
   Doing that soundly requires care with proof logging and with the elimination
   stack under learnt clauses.
-- **Chronological backtracking**, **vivification**, **rephasing** — post-2018
-  refinements that would each need their own correctness argument and their own
-  benchmark evidence to justify. Vivification was implemented, measured and
-  removed (§9 and the paper record why). **Target phases** are now implemented
-  and documented in §4; they are off by default until measured.
+- **Chronological backtracking** — a post-2018 refinement that would need its
+  own correctness argument and its own benchmark evidence to justify.
+  Vivification was implemented, measured and removed (§9 and the paper record
+  why).
+- **Target phases** and **local-search rephasing** were in this list. Both are
+  now implemented, documented in §4, and **on by default** — see
+  `Config.target_phase` and `Config.walk_flips` in `cdclkit/solver.py`.
 
 ---
 

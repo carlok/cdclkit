@@ -65,6 +65,38 @@ class TestVersions(unittest.TestCase):
                          "the [native] extra pins a version of the accelerator "
                          "that is not this one")
 
+    def test_both_halves_require_the_same_dratify(self):
+        """The Rust and Python halves must want the same checker version.
+
+        `cdclkit[native]` puts both in one process: `dratify` the Python
+        package, and the `dratify` crate compiled into the extension module.
+        They are two implementations of the same rules, and the README sells
+        the pair as agreeing with each other. For a while the crate was pinned
+        to 0.1.0 while the Python side required 0.1.2 -- two implementations
+        two releases apart, in one process, advertised as cross-checking.
+
+        This compares the lower bound each half asks for. They are different
+        dependency systems and cannot be made literally identical, so the
+        assertion is that neither can move without the other.
+        """
+        crate = re.search(r'^dratify = "([^"]+)"',
+                          _read("native/Cargo.toml"), re.M)
+        self.assertIsNotNone(
+            crate, "native/Cargo.toml does not depend on the dratify crate")
+
+        py = re.search(r'dratify>=([0-9][^"\',\]]*)', _read("pyproject.toml"))
+        self.assertIsNotNone(
+            py, "pyproject.toml does not require the dratify package")
+
+        # A caret requirement ("0.1.3") and a floor (">=0.1.3") both name the
+        # version below which the half will not work. Those must match.
+        self.assertEqual(
+            crate.group(1).lstrip("^").strip(), py.group(1).strip(),
+            "native/Cargo.toml and pyproject.toml ask for different versions "
+            "of dratify. Installing cdclkit[native] would then load two "
+            "checkers built to different rules and call their agreement "
+            "evidence.")
+
     def test_version_is_a_release_number(self):
         import cdclkit
 

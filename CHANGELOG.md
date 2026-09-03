@@ -74,10 +74,10 @@ that covers and what it does not.
   encodings and the pseudo-Boolean BDD have one implementation each and so
   cannot be cross-checked this way.
 
-## [1.0.0]
+## [0.1.0]
 
 First release. Everything below existed before this version in some form; what
-1.0.0 adds is that it is installable, that the versions agree with each other,
+0.1.0 adds is that it is installable, that the versions agree with each other,
 and that the one remaining place where an answer rested on trust no longer
 does.
 
@@ -149,8 +149,13 @@ does.
 
   The replacement is not another licence. It is silence: no licence means no
   rights granted, which is the only position from which every option is still
-  reachable, including a permissive release later. See `COPYRIGHT` and
-  `docs/LICENSING.md`.
+  reachable, including a permissive release later.
+
+  > **Superseded.** That position was reversed before the first public
+  > release: the project ships under **Apache-2.0** (see [LICENSE](LICENSE)),
+  > which was one of the options the silence was preserving. The `COPYRIGHT`
+  > and `docs/LICENSING.md` files this entry once pointed at were never
+  > written; `LICENSE` is the only licence document.
 
 ### Known limitations
 
