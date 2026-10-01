@@ -12,9 +12,9 @@ dependencies = [
 
 [[package]]
 name = "dratify"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fba071807421153095920be6b6e1d5f9b810eb8e7deae011b025c40383c950c"
+checksum = "a5722c47acc34fbd1618a2ec681181a862fdf77b4506986df3efb421593a159c"
 
 [[package]]
 name = "heck"
