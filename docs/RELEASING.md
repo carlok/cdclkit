@@ -17,6 +17,27 @@ automated. Pushing a `v*` tag runs `.github/workflows/release.yml`, which:
 Both publish steps use **Trusted Publishing** over GitHub OIDC through the
 `pypi` environment. There is no token anywhere, and nothing to rotate.
 
+**Only a `v*` tag can publish.** Two things enforce it:
+
+- The `pypi` environment accepts deployments only from refs matching the tag
+  pattern `v*` (Settings → Environments). This is the one control a branch
+  cannot change, because it lives outside the repository.
+- `release.yml` triggers on tags only, and its build job fails outright for any
+  other ref.
+
+There used to be a `workflow_dispatch` trigger as well. It ran the workflow file
+*from whichever branch was selected* and skipped the version check, so a branch
+could publish under any version it declared. It is gone. On PyPI, both
+`cdclkit` and `cdclkit-native` should name environment `pypi` in their trusted
+publisher settings, so the registry is bound to the environment and not only
+the workflow.
+
+Every file PyPI serves carries a PEP 740 attestation tying it to this
+repository, `release.yml` and the `pypi` environment. `pypa/gh-action-pypi-publish`
+generates them by default; there is nothing to configure. They are visible on
+each file's page on PyPI, or from
+`https://pypi.org/integrity/<project>/<version>/<file>/provenance`.
+
 This repository does **not** publish to crates.io — `native/` is a PyO3
 extension, not a standalone crate. The checker crate is released from
 [dratify](https://github.com/carlok/dratify), which has its own runbook.
@@ -131,6 +152,11 @@ If the `build` job fails on the version check, the tag names a version the tree
 does not declare — delete the tag, fix the version, tag again. Do not re-run
 the job.
 
+If a **publish** job fails for a reason outside the tree (an index outage, a
+network error), open the tag's run and use **Re-run failed jobs**. That keeps
+the tag ref, so the environment rule and the version check both still apply.
+There is deliberately no way to start a release by hand.
+
 Attach the artefacts to a GitHub release once the workflow is green:
 
 ```bash
@@ -142,11 +168,6 @@ gh release create v0.1.3 --notes-file <(sed -n '/## \[0.1.3\]/,/## \[0/p' CHANGE
 the benchmark harness checks against, and attaching it makes every performance
 claim in the release re-runnable by whoever downloads it.
 
-Consider `gh attestation` / Sigstore on the wheels. For a project whose pitch
-is verifiable provenance of *answers*, unverifiable provenance of the
-*artefact* is the obvious hole — and CI already builds them, so it is close to
-free.
-
 ## 6. After
 
 Open `[Unreleased]` in the changelog again. If anything in this file was wrong
@@ -154,8 +175,5 @@ or missing while you were following it, fix it now rather than next time.
 
 ## Still open
 
-- **Sigstore attestations** on the wheels. For a project whose pitch is
-  verifiable provenance of *answers*, unverifiable provenance of the *artefact*
-  is the obvious hole, and CI already builds them.
 - **Cross-machine reproducibility** of the pure-Python wheel is plausible and
   unmeasured. Do not claim it until it is.

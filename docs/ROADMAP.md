@@ -228,12 +228,19 @@ without testing something.
 - [x] Tag a signed release; pushing a `v*` tag runs the suite on the tagged
       commit, refuses a tag naming another version, and publishes both
       packages (see `docs/RELEASING.md`).
-- [ ] Sigstore attestations on the wheels. For a project whose pitch is
-      verifiable provenance of *answers*, unverifiable provenance of the
-      *artefact* is the obvious hole, and CI already builds them.
+- [x] Sigstore attestations on the wheels. They had been there all along:
+      Trusted Publishing through `pypa/gh-action-pypi-publish` attaches a
+      PEP 740 attestation to every file by default, naming this repository,
+      `release.yml` and the `pypi` environment. This box stayed unticked for a
+      month because nobody looked.
+- [x] Only a `v*` tag can publish. The `pypi` environment is restricted to the
+      tag pattern, and `release.yml` lost its `workflow_dispatch` trigger,
+      which ran from any branch and skipped the version check.
 
 **Done when:** `pip install cdclkit` works from a clean machine and the
-quickstart runs. It does; only the attestations remain.
+quickstart runs. It does, and CI now checks both: a `packaging` job installs
+the built wheel and runs the smoke test, and `tests/test_readme.py` runs the
+README example.
 
 ---
 

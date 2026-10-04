@@ -15,10 +15,17 @@ name: release
 # No Windows: it has never been tested, and the classifiers say so rather than
 # implying support.
 
+# Tags only. A `workflow_dispatch` trigger used to sit here for the very first
+# publish. It ran this file *from whichever branch was selected*, so a branch
+# could publish under any version it declared, or simply delete the check
+# below. The deploy environments are also restricted to `v*` tags in the
+# repository settings: that is the one control a branch cannot edit.
+#
+# To retry a failed publish, use "Re-run failed jobs" on the tag's run, which
+# keeps the tag ref. See docs/RELEASING.md.
 on:
   push:
     tags: ["v*"]
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -37,12 +44,19 @@ jobs:
       - run: pip install dratify && python -m unittest discover -s tests
       - run: python -m build
       - run: twine check dist/*
-      - name: the tag must name the version being built
+      - name: only a tag may publish, and it must name the version being built
         run: |
+          # Unconditional. This used to apply only `if` the ref was a tag, so
+          # any other way of starting the workflow skipped it entirely.
+          if [ "$GITHUB_REF_TYPE" != "tag" ]; then
+            echo "::error::releases come from v* tags only, not from" \
+                 "$GITHUB_REF_TYPE '$GITHUB_REF_NAME'"
+            exit 1
+          fi
           TAG="${GITHUB_REF_NAME#v}"
           BUILT=$(ls dist/*.tar.gz | sed -E 's/.*-([0-9][^-]*)\.tar\.gz/\1/')
           echo "tag=$TAG built=$BUILT"
-          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$TAG" != "$BUILT" ]; then
+          if [ "$TAG" != "$BUILT" ]; then
             echo "::error::tagged $TAG but built $BUILT -- the version was not "\
                  "bumped. skip-existing would then publish nothing and report "\
                  "success."

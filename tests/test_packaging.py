@@ -103,6 +103,31 @@ class TestVersions(unittest.TestCase):
         self.assertRegex(cdclkit.__version__, r"^\d+\.\d+\.\d+([.-]\w+)?$")
 
 
+class TestSmokeTestIsCurrent(unittest.TestCase):
+    """The post-install smoke test must ask for the modules that exist.
+
+    Its list named `cnf`, `lits` and `proof` long after they moved to
+    `dratify`, so `make smoke` failed on every run and nobody saw, because
+    nothing ran it automatically. CI now runs it; this keeps its list honest.
+    """
+
+    def test_the_smoke_module_list_matches_the_package(self):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "smoke_installed", ROOT / "tests" / "smoke_installed.py")
+        smoke = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(smoke)
+
+        on_disk = {p.stem for p in (ROOT / "cdclkit").glob("*.py")
+                   if p.stem not in ("__init__", "__main__")}
+        self.assertEqual(
+            set(smoke.MODULES), on_disk,
+            "tests/smoke_installed.py MODULES does not match cdclkit/*.py. "
+            "A module added here and not there ships untested; one listed "
+            "there and not here makes the smoke test fail on every run.")
+
+
 class TestEntryPoints(unittest.TestCase):
     def test_console_script_target_exists_and_is_callable(self):
         """`cdclkit = "cdclkit.cli:main"` has to still resolve after a refactor."""

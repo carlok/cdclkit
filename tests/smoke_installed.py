@@ -17,6 +17,12 @@ from __future__ import annotations
 import sys
 
 
+#: Every module in the `cdclkit` package. tests/test_packaging.py asserts this
+#: matches the source tree, so it cannot go stale the way it once did.
+MODULES = ("brute", "cli", "encodings", "heap", "model", "mus", "native",
+           "pipeline", "portfolio", "preprocess", "pyeq", "solver")
+
+
 def _fail(msg: str) -> None:
     print(f"c SMOKE FAILED: {msg}")
     sys.exit(1)
@@ -40,13 +46,20 @@ def main() -> int:
         if not hasattr(cdclkit, name):
             _fail(f"cdclkit.__all__ promises {name!r} and the install lacks it")
 
-    for mod in ("cli", "cnf", "solver", "proof", "encodings", "preprocess",
-                "mus", "model", "brute", "heap", "lits", "pipeline",
-                "portfolio", "native", "pyeq"):
+    for mod in MODULES:
         try:
             __import__(f"cdclkit.{mod}")
         except ImportError as e:
             _fail(f"cdclkit.{mod} is missing from the wheel: {e}")
+
+    # The literal encoding, DIMACS parser and checker moved to dratify. This
+    # list still named them as cdclkit modules, so the smoke test failed on
+    # every run after the split -- unnoticed, because it only ran by hand.
+    for mod in ("lits", "cnf", "proof"):
+        try:
+            __import__(f"dratify.{mod}")
+        except ImportError as e:
+            _fail(f"dratify.{mod}, which cdclkit depends on, is missing: {e}")
 
     # solve / prove / check, end to end
     f = cdclkit.CNF()

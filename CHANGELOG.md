@@ -7,6 +7,42 @@ that covers and what it does not.
 
 ## [Unreleased]
 
+Nothing a user installs has changed. These are the release pipeline and the
+checks that stand between a commit and a visitor.
+
+### Security
+
+- **A branch could publish a release.** `release.yml` also accepted
+  `workflow_dispatch`, which runs the workflow file from whichever branch is
+  selected. The tag-must-match-version check applied only `if` the ref was a
+  tag, so a dispatch skipped it and published whatever version the branch
+  declared, and the branch could delete the check besides. The `pypi`
+  environment had no ref policy to stop it. It is now restricted to `v*` tags
+  in the repository settings, the dispatch trigger is gone, and the build job
+  fails outright for any ref that is not a tag.
+
+### Fixed
+
+- **The post-install smoke test had failed on every run since the dratify
+  split.** It still listed `cnf`, `lits` and `proof` as `cdclkit` modules. It
+  only ran by hand (`make smoke`), so nobody saw. It now checks those three in
+  `dratify`, a test asserts its module list matches `cdclkit/*.py`, and a CI
+  `packaging` job builds the wheel, installs it into a clean virtualenv and
+  runs it from `/`.
+
+### Added
+
+- `tests/test_readme.py` runs every Python example in the README and checks
+  that it prints what its comments promise. Nothing had ever executed them.
+- CI runs Python 3.15 (currently a release candidate), including a native
+  engine leg, so the final release finds nothing new.
+
+### Documentation
+
+- Sigstore attestations were listed as missing in `RELEASING.md` and the
+  roadmap. Every file on PyPI has carried a PEP 740 attestation since the first
+  Trusted Publishing release; the publish action adds them by default.
+
 ## [0.1.3] — 2026-09-03
 
 ### Fixed
