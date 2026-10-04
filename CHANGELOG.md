@@ -7,8 +7,30 @@ that covers and what it does not.
 
 ## [Unreleased]
 
-Nothing a user installs has changed. These are the release pipeline and the
-checks that stand between a commit and a visitor.
+## [0.1.4] — 2026-10-04
+
+Requires dratify 0.1.7, in both halves, for three checker fixes that matter
+here: `--self-check` and every proof check in this package run through it.
+
+### Fixed
+
+- **`--self-check` could report a valid proof as rejected (exit 30).** The
+  checker, Python and Rust alike, lost the root implication of a lemma that was
+  already unit at the root when added, and then rejected later lemmas that
+  depended on it. That is the safe direction -- nothing invalid was accepted
+  -- but a solver whose answer is right was told otherwise. Fixed in dratify
+  0.1.7; this release requires it from Python (`dratify>=0.1.7`) and compiles
+  it into the native engine (`dratify = "0.1.7"`).
+- **The pure-Python checker accepted refutations of satisfiable formulas given
+  negative literals in a list of steps.** Not reachable from this package's
+  own solver, which writes internal literals, but reachable by anyone handing
+  `check_proof` a hand-built list. Fixed in dratify 0.1.7.
+- A DIMACS header declaring more variables than the file had characters was
+  refused as malformed, and a short proof naming a variable beyond its own
+  length likewise. Both are in dratify's parser; fixed there.
+
+The rest of this release is the release pipeline and the checks that stand
+between a commit and a visitor; nothing else a user installs has changed.
 
 ### Security
 
