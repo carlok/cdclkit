@@ -107,7 +107,8 @@ support.
 - [x] `pyeq` default arguments: silently dropped, so `f(a, b=3)` and
       `g(a, b=99)` proved equivalent. Fixed.
 - [x] 6 regression tests, verified by reinstating a bug and watching them fail.
-- [ ] **`pyeq` per-function width divergence.** `compile_function` computes
+- [x] **`pyeq` per-function width divergence.** *(Fixed in 0.1.3: mismatched
+      signatures raise `UnsupportedConstruct`, and the `except` was narrowed.)* `compile_function` computes
       `width = max(widths[n] for n in names)` over *each function's own*
       parameters, so comparing `f(a, b)` with `g(a)` at
       `widths={"a": 4, "b": 16}` compiles constants at different widths and
@@ -142,24 +143,31 @@ known false proof survives, and every default is described accurately.
 
 Nothing is rewritten. The front page changes.
 
-- [ ] **README reorder**: checker first, solver second, `pyeq` third and
-      explicitly labelled an experiment.
-- [ ] **Drop or heavily caveat the kissat comparison.** PySAT bundles kissat
+- [x] **README reorder**: checker first, solver second, `pyeq` third and
+      explicitly labelled an experiment. *(Moot: the checker became its own
+      package, `dratify`, and leads its own README.)*
+- [x] **Drop or heavily caveat the kissat comparison.** *(Caveated: the README
+      states it is against kissat's default configuration on small public
+      instances, and `BENCHMARKS.md` says how process startup is subtracted.)* PySAT bundles kissat
       4.0.4, so a reviewer reproduces the number in ten minutes on a suite
       where SATLIB instances are small enough to be partly measuring process
       startup -- and having discounted it, discounts the DRAT work with it.
       This is the highest-leverage edit in the document: the feature you are
       proudest of is undermining the feature with a future.
-- [ ] **Correct the Rust framing.** The README says the Rust engine "is being
+- [x] **Correct the Rust framing.** *(The README now calls it bit-exact and
+      gives the measured speedup.)* The README says the Rust engine "is being
       added" and is "never selected automatically". It is 3,741 lines, bit-exact
       with Python, and the pipeline defaults to it.
-- [ ] **A `check` quickstart that runs in four lines**, taking a proof from
+- [x] **A `check` quickstart that runs in four lines**, taking a proof from
       PySAT and verifying it. That is the entire pitch and it should be the
-      first code block anyone sees.
-- [ ] **Document the two-engine agreement property.** Python and Rust rejected
+      first code block anyone sees. *(In dratify's README, run by its test
+      suite on every push.)*
+- [x] **Document the two-engine agreement property.** Python and Rust rejected
       exactly the same corrupted proofs across 16,000 comparisons (93/93,
       125/125, 13/13) with 1,542 RAT steps exercised. Nobody else offers this;
       drat-trim is one implementation and `drup` is one implementation.
+      *(In dratify's README, which since 0.1.7 also compares both against a
+      third, deliberately naive checker: the two engines had shared a bug.)*
 
 **Done when:** a stranger reading the README top-to-bottom understands within
 30 seconds that this checks proofs, and can run it.
@@ -208,8 +216,9 @@ correctness bugs today; all of them are how a correctness bug would get in.
       absent (`test_pyeq.py:420`, `test_portfolio.py:153`, `test_pipeline.py:131`)
       -- on the dependency-free CI matrix they run the same engine twice and
       report PASS.
-- [ ] **Coverage floor margin is 0.0 points** (75% against a floor of 75).
-      Statement-only, no branch coverage.
+- [x] **Coverage floor margin is 0.0 points** (75% against a floor of 75).
+      Statement-only, no branch coverage. *(Floor 72 against 75.9, enforced
+      in CI since 0.1.3. Still statement-only.)*
 
 **Done when:** the bit-exactness suite exercises clause reduction, rephasing and
 restart blocking; `brute.py` has an independent oracle; and no test can pass
@@ -251,23 +260,23 @@ README example.
       optional Rust accelerator supplied by `cdclkit-native`, both engines
       exposed so a caller can demand agreement rather than trust one. A CI job
       there compares them and fails if the comparison skips.
-- [ ] **Note that CaDiCaL cannot read standard SATLIB files either.** Found
-      while building `dratify/bench/repro.py`: CaDiCaL stops at the trailing
-      `%` with `parse error: expected digit or '-'`, exactly as PySAT does.
-      This parser reads them. That is two of the three most-used tools in the
-      ecosystem, which makes it worth a README line and probably an upstream
-      report — the same probe as the item below.
-- [ ] **File the CaDiCaL/PySAT proof bug.** Reproducible and confirmed: proofs
-      obtained through PySAT's `get_proof()` from CaDiCaL153 failed to verify on
-      4 of 5 `uuf100` instances, and **drat-trim agrees on all 10 cases tested**.
-      Every individual step verifies; the empty clause is never derived, and it
-      is not RUP at the end. Deterministic across runs (1,815 lines each time).
-      One probe still needed to say whether the gap is in PySAT's binding or in
-      CaDiCaL's DRUP emission -- that decides who to file with.
-- [ ] **PySAT cannot parse standard SATLIB files** (`ValueError: invalid integer
-      token` on the trailing `%`), and this parser can. Small, but it is the
-      kind of thing that makes a tool feel solid on first contact. Worth a line
-      in the README and possibly a patch upstream.
+- [x] **File the CaDiCaL/PySAT proof bug.** *(Done 2026-10-04, and the
+      answer was neither of the two suspects as framed.)* It is PySAT's
+      binding, for **every** CaDiCaL it ships (1.0.3, 1.5.3, 1.9.5, 3.0.0): it
+      has CaDiCaL write binary DRAT into a line-buffered stream and reads the
+      file before flushing it, so the tail -- usually the empty clause -- is
+      still in a buffer. 4-8 of 50 `uuf100` proofs verify as returned, all 50
+      after `fflush`. CaDiCaL 1.5.3 built standalone writes valid proofs.
+      Reported with the mechanism on
+      [pysathq/pysat#233](https://github.com/pysathq/pysat/issues/233), which
+      had found it on Windows; dratify's README gives the workaround. Chasing
+      this also found three bugs in dratify's own checker, fixed in 0.1.7.
+- [ ] **Report the SATLIB `%` to CaDiCaL and PySAT.** Both stop at the
+      trailing `%` SATLIB files end with -- CaDiCaL with `parse error:
+      expected digit or '-'`, PySAT with `ValueError: invalid integer token`
+      -- and this parser reads them. The README half is done (dratify's README
+      says so and its PySAT example parses through dratify for this reason);
+      the upstream reports are not.
 - [ ] **LRAT output**, which is what `cake_lpr` consumes. That is the bridge
       from "carefully written checker" to "feeds a formally verified one", and
       it is the single strongest addition available to the trust story.

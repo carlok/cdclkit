@@ -392,6 +392,11 @@ class Solver:
         #: depth. Only meaningful when cfg.target_phase is on.
         self._target = bytearray()
         self._target_size = 0
+        #: how much of the current trail the target already records: for every
+        #: i < _target_synced, _target holds trail[i]'s value. The trail only
+        #: grows by appending and only shrinks in _cancel_until, so a prefix
+        #: that has been copied stays copied until a backtrack cuts into it.
+        self._target_synced = 0
         self._walk_best = 1 << 30
         self._walk_stale = 0
         self.frozen = bytearray()  # variables excluded from decisions
@@ -605,6 +610,8 @@ class Solver:
         del trail[bound:]
         del self.trail_lim[level:]
         self.qhead = len(trail)
+        if self._target_synced > bound:
+            self._target_synced = bound
 
     # ------------------------------------------------------------ propagation
 
@@ -1154,6 +1161,7 @@ class Solver:
         self._target[:] = best
         self.polarity[:] = best
         self._target_size = 0   # the target now describes the walk, not a trail
+        self._target_synced = 0
 
     # -------------------------------------------------------------- restarts
 
@@ -1229,13 +1237,21 @@ class Solver:
                     self._reduce_db()
             else:
                 # A new deepest conflict-free trail: remember the assignment
-                # that reached it. Copying costs O(|trail|), but only on a
-                # strict improvement, and improvements become rare quickly.
+                # that reached it -- copying only what the target does not
+                # already hold. This used to copy the whole trail on every
+                # improvement, on the theory that improvements become rare
+                # quickly. They do once conflicts start; a search that makes
+                # many decisions without one improves on every decision, and
+                # n of them cost O(n^2) (tests/test_target_scaling.py). The
+                # target ends up byte-for-byte what the full copy produced.
                 if self.cfg.target_phase and len(self.trail) > self._target_size:
-                    self._target_size = len(self.trail)
+                    trail = self.trail
+                    self._target_size = len(trail)
                     target = self._target
-                    for t in self.trail:
+                    for i in range(self._target_synced, len(trail)):
+                        t = trail[i]
                         target[t >> 1] = 0 if (t & 1) else 1
+                    self._target_synced = len(trail)
 
                 if max_conflicts is not None and conflicts >= max_conflicts:
                     self._cancel_until(len(self.assumptions_applied))

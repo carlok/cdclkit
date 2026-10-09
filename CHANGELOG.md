@@ -7,6 +7,45 @@ that covers and what it does not.
 
 ## [Unreleased]
 
+## [0.1.5] — 2026-10-09
+
+### Fixed
+
+- **The search was quadratic in the number of variables whenever it made
+  decisions without conflicts**, in both engines. With target phases on --
+  the default -- every new deepest trail copied the *whole* trail into the
+  target, on the theory that improvements "become rare quickly". They do once
+  conflicts start; a search that makes many decisions without one improves on
+  every decision, and n of them cost O(n²). Now only the part of the trail the
+  target does not already hold is copied, which leaves the target, and so
+  every conflict, decision and propagation, exactly as before: the
+  conflict-count baseline is unchanged to the last conflict, and the fixed
+  Python engine was bit-exact with the *unfixed* Rust one before Rust was
+  touched.
+
+  | | before | after |
+  |---|---|---|
+  | Python, 65,536 declared variables | 144 s | 0.48 s |
+  | Python, 2^20 declared variables | hours (extrapolated) | 10.2 s |
+  | native, 131,072 declared variables | 4.2 s | 0.01 s |
+
+  Any large formula with an easy search paid this; the benchmark corpus, at
+  250 variables or fewer, was too small to show it. It became a
+  denial-of-service when dratify 0.1.7 began accepting headers that declare up
+  to 2^20 variables from a file of any length -- a correct fix for real
+  instances that declare variables they never use, which turned a 22-byte file
+  into hours of CPU here. `tests/test_target_scaling.py` checks that
+  quadrupling the variables costs closer to 4x than 16x, on both engines.
+
+### Documentation
+
+- `SECURITY.md` says where "slow" ends: cost out of proportion to a formula's
+  size *and* difficulty is a bug worth reporting, and time limits remain the
+  caller's protection against genuinely hard input.
+- Python 3.15 classifier; CI has tested it since its release candidates.
+- Seven roadmap items that were done are marked done, and the CaDiCaL/PySAT
+  entry records what the investigation found.
+
 ## [0.1.4] — 2026-10-04
 
 Requires dratify 0.1.7, in both halves, for three checker fixes that matter

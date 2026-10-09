@@ -413,6 +413,11 @@ pub struct Solver {
     /// depth. Only read when `cfg.target_phase` is set.
     target: Vec<bool>,
     target_size: usize,
+    /// How much of the current trail `target` already records: for every
+    /// `i < target_synced`, `target` holds `trail[i]`'s value. The trail only
+    /// grows by pushing and only shrinks in `cancel_until`, so a copied prefix
+    /// stays copied until a backtrack cuts into it.
+    target_synced: usize,
     /// xorshift32, mirroring `Solver._rand` in cdclkit/solver.py so the walk
     /// reproduces flip for flip.
     rnd: u32,
@@ -488,6 +493,7 @@ impl Solver {
             polarity: Vec::new(),
             target: Vec::new(),
             target_size: 0,
+            target_synced: 0,
             rnd: rnd_seed,
             walk_best: usize::MAX,
             walk_stale: 0,
@@ -711,6 +717,7 @@ impl Solver {
         self.trail.truncate(bound);
         self.trail_lim.truncate(level as usize);
         self.qhead = self.trail.len();
+        self.target_synced = self.target_synced.min(bound);
     }
 
     // -- propagation --------------------------------------------------------
@@ -1369,6 +1376,7 @@ impl Solver {
         self.target.copy_from_slice(&best);
         self.polarity.copy_from_slice(&best);
         self.target_size = 0;
+        self.target_synced = 0;
     }
 
     // -- restarts -----------------------------------------------------------
@@ -1462,13 +1470,19 @@ impl Solver {
                 }
             } else {
                 // A new deepest conflict-free trail: remember the assignment
-                // that reached it. O(|trail|), but only on a strict
-                // improvement, and improvements become rare quickly.
+                // that reached it -- copying only what the target does not
+                // already hold. This copied the whole trail on every
+                // improvement, on the theory that improvements become rare
+                // quickly; a search making many decisions without a conflict
+                // improves on every one, and n of them cost O(n^2). The target
+                // ends up exactly what the full copy produced, and so does the
+                // Python engine's (tests/test_target_scaling.py).
                 if self.cfg.target_phase && self.trail.len() > self.target_size {
                     self.target_size = self.trail.len();
-                    for &t in &self.trail {
+                    for &t in &self.trail[self.target_synced..] {
                         self.target[(t >> 1) as usize] = (t & 1) == 0;
                     }
+                    self.target_synced = self.trail.len();
                 }
                 if let Some(budget) = max_conflicts {
                     if conflicts_here >= budget {

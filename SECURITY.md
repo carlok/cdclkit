@@ -27,6 +27,19 @@ case where they differ is a real finding even if both answers are correct.
 **Not a vulnerability:** being slow; running out of memory on a genuinely hard
 instance; `pyeq` limitations, which are documented and experimental.
 
+**Where "slow" ends.** SAT is NP-complete, so a short formula can always take
+forever, and the protection against that is the caller's: `--conflicts` on
+the command line; `max_conflicts=` and `deadline=` on `Solver.solve`;
+`seconds=` on `solve_adaptive`. What *is* a
+bug is cost wildly out of proportion to both the input's size and its
+difficulty. The example that prompted this note: until 0.1.5, a 22-byte file
+declaring 2^20 variables and one unit clause -- trivially satisfiable --
+took hours, because target phases re-copied the whole trail at every new
+depth, which is quadratic when a search makes many decisions without a
+conflict. Reports of that kind are wanted under **High**. Linear cost in what
+the file declares is expected: 2^20 declared variables still take about ten
+seconds and 300 MB in pure Python, and a fraction of a second natively.
+
 ## Scope
 
 The `cdclkit` and `cdclkit-native` packages at the latest released version.

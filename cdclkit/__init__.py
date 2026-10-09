@@ -52,7 +52,7 @@ from .preprocess import Preprocessor, preprocess
 from dratify.proof import DRATChecker, MemoryProof, ProofWriter, check_proof
 from .solver import Config, SAT, Solver, Stats, UNKNOWN, UNSAT
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 
 __all__ = [
     "CNF",
