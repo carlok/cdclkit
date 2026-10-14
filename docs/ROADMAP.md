@@ -275,12 +275,18 @@ README example.
       [pysathq/pysat#233](https://github.com/pysathq/pysat/issues/233), which
       had found it on Windows; dratify's README gives the workaround. Chasing
       this also found three bugs in dratify's own checker, fixed in 0.1.7.
-- [ ] **Report the SATLIB `%` to CaDiCaL and PySAT.** Both stop at the
+- [x] **Report the SATLIB `%` to CaDiCaL and PySAT.** Both stop at the
       trailing `%` SATLIB files end with -- CaDiCaL with `parse error:
       expected digit or '-'`, PySAT with `ValueError: invalid integer token`
       -- and this parser reads them. The README half is done (dratify's README
-      says so and its PySAT example parses through dratify for this reason);
-      the upstream reports are not.
+      says so and its PySAT example parses through dratify for this reason).
+      *(Not reporting: PySAT declined exactly this in
+      [pysathq/pysat#146](https://github.com/pysathq/pysat/issues/146), 2023,
+      on the grounds that the `uf*` files predate the format and should be
+      fixed rather than the parser. CaDiCaL 3.0.1 and kissat 4.0.4 are
+      strict by design, and `--relaxed` and `-f` do not cover it. Checking
+      found a different kissat bug: most clause-section parse errors are
+      reported as line 1.)*
 - [ ] **LRAT output**, which is what `cake_lpr` consumes. That is the bridge
       from "carefully written checker" to "feeds a formally verified one", and
       it is the single strongest addition available to the trust story.
