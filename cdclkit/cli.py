@@ -47,6 +47,26 @@ def _native_ok() -> bool:
     return native.available()
 
 
+def _pick_engine() -> str | None:
+    """The engine for `--adaptive` and `-j`; None after printing an error.
+
+    Native when it is installed: it is bit-exact with Python, so this changes
+    the speed and not the answer. CDCLKIT_ENGINE overrides it, which is how to
+    rule the native engine in or out of a suspect result. The plain sequential
+    path is always Python.
+    """
+    from . import native
+
+    try:
+        engine = native.engine_requested(
+            default="native" if _native_ok() else "python")
+    except RuntimeError as e:
+        print(f"c error: {e}", file=sys.stderr)
+        return None
+    print(f"c engine: {engine}")
+    return engine
+
+
 EXIT_SAT = 10
 EXIT_UNSAT = 20
 EXIT_UNKNOWN = 0
@@ -115,9 +135,12 @@ def cmd_solve(args) -> int:
                   "(workers race and their steps interleave); drop -j or drop "
                   "--proof/--self-check")
             return EXIT_ERROR
+        engine = _pick_engine()
+        if engine is None:
+            return EXIT_ERROR
         pr = solve_adaptive(
             f,
-            engine="native" if _native_ok() else "python",
+            engine=engine,
             config=cfg,
             jobs=jobs,
             proof=proof_sink,
@@ -146,7 +169,11 @@ def cmd_solve(args) -> int:
         # Parallel portfolio.  Only the winning worker's proof exists, and
         # because workers share no clauses it is a complete refutation on its
         # own -- see cdclkit/portfolio.py.
-        pr = solve_portfolio(f, jobs=jobs, want_proof=proof_sink is not None)
+        engine = _pick_engine()
+        if engine is None:
+            return EXIT_ERROR
+        pr = solve_portfolio(f, jobs=jobs, engine=engine,
+                             want_proof=proof_sink is not None)
         if not pr.finished:
             print("s UNKNOWN")
             return EXIT_UNKNOWN

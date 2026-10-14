@@ -13,10 +13,13 @@ The contract, in both directions:
   full under a plain `python3` with no Rust toolchain anywhere. That property
   is tested, not assumed -- it is what lets the port proceed in small commits
   without the repo ever being in a broken state.
-* **If it is present, it is opt-in.** Nothing selects the native path on its
-  own. A caller asks for it explicitly (`--engine native`, or
-  `CDCLKIT_ENGINE=native`), because a silent switch between two implementations
-  is how differential bugs hide.
+* **If it is present, the plain solver still does not use it.** `Solver`,
+  `solve()` and `cdclkit solve` are Python. `solve_adaptive()`,
+  `solve_portfolio()` and `cdclkit solve --adaptive` / `-j N` use it when it is
+  installed. That is safe only because the two engines are bit-exact and tested
+  to stay that way. A silent switch between two implementations is how
+  differential bugs hide, so the CLI prints which engine ran and
+  `CDCLKIT_ENGINE` (read by `engine_requested()`) overrides the choice.
 
 Building it::
 
@@ -54,8 +57,7 @@ else:  # pragma: no cover - depends on whether the module was built
     #
     # This is not the silent engine switch the rest of this module warns about.
     # Two checkers must agree by construction -- if they ever disagree that is
-    # a bug worth surfacing, not a difference worth preserving. The solver is
-    # the thing that stays explicitly opt-in.
+    # a bug worth surfacing, not a difference worth preserving.
     try:
         import dratify as _dratify
         _dratify.register_native(_native)

@@ -113,11 +113,14 @@ class TestAdaptiveEmitsACheckableProof(unittest.TestCase):
 class TestAdaptiveCLI(unittest.TestCase):
     """End to end, because the bug was in the wiring rather than the pipeline."""
 
-    def _cli(self, *args):
+    def _cli(self, *args, engine=None):
         root = pathlib.Path(__file__).resolve().parent.parent
         import os
 
         env = dict(os.environ)
+        env.pop("CDCLKIT_ENGINE", None)
+        if engine is not None:
+            env["CDCLKIT_ENGINE"] = engine
         # prepend, do not replace: a pure-Python checkout finds dratify on the
         # inherited path, and clobbering it made these fail for the wrong reason
         env["PYTHONPATH"] = os.pathsep.join(
@@ -155,6 +158,47 @@ class TestAdaptiveCLI(unittest.TestCase):
                           "-j", "2")
         self.assertEqual(r.returncode, 1)
         self.assertIn("interleave", r.stdout)
+
+    # AGENTS.md said CDCLKIT_ENGINE selected the engine. Nothing read it, and
+    # `--adaptive` picked native on its own whenever it was installed.
+
+    def _php(self, engine=None):
+        with tempfile.TemporaryDirectory() as d:
+            cnf = pathlib.Path(d) / "php.cnf"
+            cnf.write_text(PHP)
+            return self._cli("solve", str(cnf), "--adaptive", engine=engine)
+
+    def test_adaptive_uses_native_when_installed(self):
+        r = self._php()
+        self.assertEqual(r.returncode, 20, r.stdout + r.stderr)
+        want = "native" if native.available() else "python"
+        self.assertIn(f"c engine: {want}", r.stdout)
+
+    def test_cdclkit_engine_python_overrides_adaptive(self):
+        r = self._php(engine="python")
+        self.assertEqual(r.returncode, 20, r.stdout + r.stderr)
+        self.assertIn("c engine: python", r.stdout)
+
+    def test_cdclkit_engine_native_without_the_build_is_an_error(self):
+        if native.available():
+            self.skipTest("native engine is built here")
+        r = self._php(engine="native")
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn("CDCLKIT_ENGINE=native", r.stderr)
+        self.assertNotIn("Traceback", r.stderr)
+
+    def test_portfolio_honours_cdclkit_engine_too(self):
+        with tempfile.TemporaryDirectory() as d:
+            cnf = pathlib.Path(d) / "php.cnf"
+            cnf.write_text(PHP)
+            r = self._cli("solve", str(cnf), "-j", "2", engine="python")
+        self.assertEqual(r.returncode, 20, r.stdout + r.stderr)
+        self.assertIn("c engine: python", r.stdout)
+
+    def test_unknown_cdclkit_engine_is_an_error(self):
+        r = self._php(engine="quantum")
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn("unknown CDCLKIT_ENGINE", r.stderr)
 
 
 if __name__ == "__main__":

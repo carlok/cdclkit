@@ -23,11 +23,17 @@ help:
 	@echo "make demo      -- solve a pigeonhole instance with a self-checked proof"
 	@echo "make clean     -- remove __pycache__ and generated instances"
 
+# "OK" from the system interpreter does not cover the native engine: every test
+# that needs it skips. Say so after the run instead of leaving it in the skip count.
+NATIVE_NOTE = @$(PYTHON) -c "import sys; from cdclkit import native; native.available() or print('c note: the native engine is not built for $(PYTHON), so its tests were skipped. Run make native, then make test-native.', file=sys.stderr)"
+
 test:
 	$(PYTHON) -m unittest discover -s tests
+	$(NATIVE_NOTE)
 
 test-verbose:
 	$(PYTHON) -m unittest discover -s tests -v
+	$(NATIVE_NOTE)
 
 # The native engine is optional.  `make test` above deliberately uses the
 # system interpreter with no Rust anywhere, because the dependency-free path is

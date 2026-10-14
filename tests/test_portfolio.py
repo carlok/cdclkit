@@ -151,6 +151,12 @@ class TestEngineSelection(unittest.TestCase):
     """The portfolio can run native workers; correctness must not depend on it."""
 
     def test_python_and_native_engines_agree(self):
+        from cdclkit import native
+
+        if not native.available():
+            # engine="native" falls back to Python, so this would compare
+            # Python against Python and pass
+            self.skipTest("native engine not built")
         rng = random.Random(fuzz_seed(13))
         for _ in range(15):
             f = random_cnf(rng, max_vars=9, ratio=4.8)

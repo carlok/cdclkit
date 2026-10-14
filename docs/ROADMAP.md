@@ -118,10 +118,11 @@ support.
 - [x] **Phantom documentation.** `pyeq.py:295` tells users to "pass it through
       `helpers=`"; no such parameter exists. The uncommitted `encodings.py`
       documents `xor_direct()` and `assert_expr_expanded()`; neither exists.
-- [ ] **Docstrings that describe code that isn't there.**
+- [x] **Docstrings that describe code that isn't there.**
       `_Compiler.assign()` (`pyeq.py:447-452`) describes a select that happens
       elsewhere; `BitVec.slt()` claims a signed-overflow XOR where the code
       widens by a bit. Both behave correctly; only the prose is wrong.
+      *(0.1.6: both now describe what the code does.)*
 - [x] **`ALGORITHMS.md` section 8** listed rephasing as absent and target
       phases as "off by default until measured". Both ship on by default; §4,
       §8 and the `Config` docstring now say so.
@@ -202,8 +203,9 @@ correctness bugs today; all of them are how a correctness bug would get in.
       already has `fuzz_seed()` / `fuzz_cases()` with `CDCLKIT_FUZZ_SEED` and
       **zero call sites**, plus a docstring pointing at `tests.fuzz_dimacs`,
       which does not exist. Wire it up or stop calling it fuzzing.
-- [ ] **`make test` uses the system interpreter**, so the default developer
+- [x] **`make test` uses the system interpreter**, so the default developer
       command skips all 37 native tests and reports green. Make it say so.
+      *(0.1.6: `make test` prints a note after the run when native is absent.)*
 - [x] **`cargo test` cannot link on macOS** -- `native/Cargo.toml:11,14`
       declares `crate-type = ["cdylib"]` with unconditional pyo3
       `extension-module`, so ~25 Rust unit tests are unrunnable outside Linux
@@ -212,10 +214,12 @@ correctness bugs today; all of them are how a correctness bug would get in.
       `test_integration.py:93` accepts either exit code in a test named for
       rejecting a corrupted proof; `test_packaging.py:77-79` guards on a file
       that does not exist so `main()` is never called.
-- [ ] **Three cross-engine tests degenerate to single-engine** when native is
+- [x] **Three cross-engine tests degenerate to single-engine** when native is
       absent (`test_pyeq.py:420`, `test_portfolio.py:153`, `test_pipeline.py:131`)
       -- on the dependency-free CI matrix they run the same engine twice and
-      report PASS.
+      report PASS. *(pyeq skipped since 1ee9482; portfolio skips since 0.1.6.
+      The pipeline one is a fallback test, so running without native is its
+      job.)*
 - [x] **Coverage floor margin is 0.0 points** (75% against a floor of 75).
       Statement-only, no branch coverage. *(Floor 72 against 75.9, enforced
       in CI since 0.1.3. Still statement-only.)*

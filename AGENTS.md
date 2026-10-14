@@ -67,16 +67,26 @@ only for *unknown* — a conflict budget that ran out without deciding the
 formula. A shell script expecting `0` to mean success reads a solved instance
 as a failure, and an undecided one as a success. Both directions are wrong.
 
-## The native engine is opt-in
+## Which engine solves
 
-`pip install "cdclkit[native]"`. It is never selected implicitly for solving —
-a caller asks for it (`engine="native"`, or `CDCLKIT_ENGINE=native`). It is
-bit-exact with the Python engine: identical conflicts, decisions and
-propagations, and there are tests that fail if that drifts.
+`pip install "cdclkit[native]"` adds the Rust engine. It is bit-exact with the
+Python engine: identical conflicts, decisions and propagations, and there are
+tests that fail if that drifts. So the engine changes the speed, never the
+answer. Where each one is used:
 
-Proof *checking* is the exception: installing the extra registers the Rust
-checker with `dratify`, so `engine="auto"` starts using it. That is a pure
-speedup, not a behaviour change.
+- `cdclkit solve` and `Solver` / `solve()` in the library: always Python.
+- `cdclkit solve --adaptive` or `-j N`, and `solve_adaptive()` /
+  `solve_portfolio()`: native when it is installed, Python otherwise. Running
+  `CDCLKIT_ENGINE=python cdclkit solve --adaptive` forces Python; that is how
+  to rule the native engine in or out of a suspect result. Setting
+  `CDCLKIT_ENGINE=native` without the build is an error, not a silent
+  fallback. The CLI prints `c engine: ...` either way.
+- In the library, pass `engine="python"` or `engine="native"` instead.
+
+Proof *checking* switches too: installing the extra registers the Rust
+checker with `dratify`, so `check_proof(engine="auto")` starts using it. That
+is a pure speedup, not a behaviour change. `CDCLKIT_ENGINE` does not reach
+it; pass `engine="python"` to `check_proof` instead.
 
 ## Where to look
 

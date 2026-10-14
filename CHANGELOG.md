@@ -7,6 +7,32 @@ that covers and what it does not.
 
 ## [Unreleased]
 
+## [0.1.6] — 2026-10-14
+
+### Fixed
+
+- **`CDCLKIT_ENGINE` did nothing.** AGENTS.md and the `cdclkit.native`
+  docstring said it selected the engine and that the native engine was "never
+  selected implicitly". Neither was true: nothing read the variable, and
+  `cdclkit solve --adaptive` and `-j N` used native whenever it was installed.
+  Both paths now honour `CDCLKIT_ENGINE=python|native`. An unknown value, or
+  `native` without the build, exits 1 with a message instead of being
+  ignored. Both paths also print `c engine: ...`, so a result says which
+  engine produced it. Defaults are unchanged: native when installed for
+  `--adaptive` and `-j`, Python for plain `solve`. The engines are bit-exact,
+  so the choice changes the speed and not the answer.
+- AGENTS.md and the `cdclkit.native` docstring now describe which entry point
+  uses which engine, and drop the `--engine` flag, which never existed.
+- `BitVec.slt()` and `_Compiler.assign()` in `pyeq` have docstrings that match
+  the code. Behaviour is unchanged.
+
+### Tests
+
+- `make test` prints a note when the native engine is not built for the
+  interpreter, because its tests skip and the run still says OK.
+- The portfolio's Python-vs-native agreement test skips without native
+  instead of comparing Python with itself.
+
 ## [0.1.5] — 2026-10-09
 
 ### Fixed

@@ -198,8 +198,11 @@ class BitVec:
         return self.enc.and_gate(same)
 
     def slt(self, other: "BitVec") -> int:
-        """Signed less-than, via the sign of the difference with overflow
-        correction: a < b iff (a-b) is negative, XOR the signed-overflow flag."""
+        """Signed less-than: a < b iff a - b is negative.
+
+        Both operands are sign-extended by one bit before subtracting, so the
+        difference of two w-bit values always fits in w+1 bits and cannot
+        overflow. Its top bit is then the answer, with no overflow flag."""
         enc = self.enc
         w = max(self.width, other.width) + 1  # one extra bit kills the overflow case
         a, b = self.extend(w), other.extend(w)
@@ -451,10 +454,12 @@ class _Compiler(ast.NodeVisitor):
         self._fail(node, type(node).__name__)
 
     def assign(self, name: str, value: BitVec) -> None:
-        """Assign under the current path condition.
+        """Bind `name` to `value` in the current environment, unconditionally.
 
-        Inside a branch the assignment is conditional, so the variable becomes
-        a select between the new value and whatever it held before.
+        Branches stay correct without a select here: an `if` runs each arm on
+        its own copy of the environment and merges them afterwards, with one
+        select per variable that differs between the arms (see the `ast.If`
+        case of `stmt`).
         """
         self.env[name] = value
 
