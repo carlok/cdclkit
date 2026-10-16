@@ -275,6 +275,8 @@ README example.
       [pysathq/pysat#233](https://github.com/pysathq/pysat/issues/233), which
       had found it on Windows; dratify's README gives the workaround. Chasing
       this also found three bugs in dratify's own checker, fixed in 0.1.7.
+      *(Fixed upstream in python-sat 1.9.dev16, 2026-10-15. Confirmed on the
+      same 50 instances: 50 of 50 on all four CaDiCaL versions, no flush.)*
 - [x] **Report the SATLIB `%` to CaDiCaL and PySAT.** Both stop at the
       trailing `%` SATLIB files end with -- CaDiCaL with `parse error:
       expected digit or '-'`, PySAT with `ValueError: invalid integer token`
