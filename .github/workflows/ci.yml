@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Re-run without a commit, e.g. when ubuntu-latest moves to a new image.
+  workflow_dispatch:
 
 permissions:
   contents: read
