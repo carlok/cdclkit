@@ -7,6 +7,29 @@ that covers and what it does not.
 
 ## [Unreleased]
 
+## [0.1.7] — 2026-10-24
+
+### Fixed
+
+- **Requires dratify 0.1.9**, in both halves: `dratify>=0.1.9` for the
+  Python package, and the `dratify` crate 0.1.9 embedded in `cdclkit-native`.
+  Both of dratify's checkers misread a proof step that repeats a literal:
+  `1 1 0` never became unit at the root, so a valid proof that relied on it
+  was rejected, and `d 1 1 0` deleted a unit that should have been ignored.
+  A false rejection only. cdclkit's own solvers do not write repeated
+  literals, so their self-checks were not affected. The checker that
+  `cdclkit-native` hands to `dratify` is the Rust one, though, and it gets
+  the fix only from this release.
+
+### Tests
+
+- The target-phase scaling test steps by 16x with a limit of 64, not 4x with
+  a limit of 8. A macOS runner measured 8.3x for 4x on native runs of 4 and
+  32 ms, while linear is about 4.5x at that step. At 16x, linear is about 20x
+  and quadratic about 256x, and run against 0.1.4 the test still fails at
+  252x (native) and 218x (Python).
+- CI can be re-run by hand (`workflow_dispatch`).
+
 ## [0.1.6] — 2026-10-14
 
 ### Fixed
