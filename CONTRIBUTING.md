@@ -9,10 +9,14 @@ the proof checker. Without it the suite stops with import errors.
 pip install dratify        # or: pip install -e .
 make test                  # the full suite, no Rust needed
 make coverage              # statement coverage, floor 72%
-make gate                  # tests, examples, and the conflict baselines
+make lint                  # every file compiles, including those no test imports
+make gate                  # tests, conflict baselines, agreement with a reference solver
 ```
 
-`make gate` is what CI runs, and it is what to run before opening a PR.
+`make gate` is what to run before opening a PR. It needs one reference solver on
+`PATH` (`brew install minisat`, or `apt install minisat`) and stops with exit
+code 2 without one. CI runs everything in it, plus lint, coverage, the examples
+and the native engine.
 
 The Rust engine is optional and must be bit-exact with the Python one:
 

@@ -7,6 +7,15 @@ that covers and what it does not.
 
 ## [Unreleased]
 
+### Tests
+
+- CI now runs `make lint` and `bench/compare.py --quick`, the part of
+  `make gate` it had been skipping although CONTRIBUTING said it ran all of it.
+  The reference solvers are MiniSat and CaDiCaL.
+- `cargo audit` over `native/Cargo.lock`, when the lockfile changes and weekly.
+- Dependabot watches the Python build tooling. `dratify` and `cdclkit-native`
+  are excluded, because their versions move only with a release.
+
 ## [0.1.7] — 2026-10-24
 
 ### Fixed

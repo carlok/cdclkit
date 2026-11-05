@@ -13,3 +13,16 @@ updates:
     directory: /native
     schedule:
       interval: monthly
+  # dratify is a range and its floor is a decision: it is raised when a release
+  # of this package needs a fix, in step with the crate. cdclkit-native is this
+  # repository's own release, pinned exactly, and moves only with a release.
+  # tests/test_packaging.py enforces both. What is left is the build tooling.
+  - package-ecosystem: pip
+    directories:
+      - /
+      - /native
+    schedule:
+      interval: monthly
+    ignore:
+      - dependency-name: cdclkit-native
+      - dependency-name: dratify
