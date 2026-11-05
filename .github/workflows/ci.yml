@@ -40,6 +40,16 @@ jobs:
       - run: pip install dratify
       - run: python tests/coverage_report.py --min 72
 
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: bytecode compile check (make lint)
+        run: python -m compileall -q cdclkit tests examples bench
+
   # `make gate` has always run this; CI never did, so the only guard against a
   # change that alters search behaviour fired solely when a human remembered
   # to type it. It compares conflict counts, which are deterministic and
@@ -54,6 +64,22 @@ jobs:
       - run: pip install dratify
       - name: conflict counts must match bench/baseline.json
         run: python bench/run_bench.py --quick --configs all --check-baseline
+
+  # The last line of `make gate`, and the only check here that an implementation
+  # sharing nothing with this one gets the same answers. Brute force stops at
+  # about 12 variables; these instances go to 1,751. compare.py exits 1 on a
+  # verdict disagreement and 2 if it finds no solver, and timings do not affect
+  # the result, so a slow runner cannot fail this.
+  agreement:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update && sudo apt-get install -y minisat cadical
+      - run: pip install dratify
+      - run: python bench/compare.py --quick
 
   examples:
     runs-on: ubuntu-latest
