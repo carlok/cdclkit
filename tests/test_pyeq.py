@@ -444,6 +444,111 @@ class TestRejection(unittest.TestCase):
 
         self._reject(uses_str, "constant of type str")
 
+    def test_a_bare_expression_is_not_ignored(self):
+        """Every one of these was dropped by a line that said bare expressions
+        have no effect, and proved equal to a function it differs from."""
+        def identity(a): return a
+
+        def walrus(a):
+            (a := a + 1)
+            return a
+
+        def yields(a):
+            yield a
+            return a
+
+        def raises(a):
+            a % 0
+            return a
+
+        def call_one_level_down(a):
+            [print(a) for i in range(1)]
+            return a
+
+        def name(a):
+            b
+            return a
+
+        for fn in (walrus, yields, raises, call_one_level_down, name):
+            with self.subTest(fn=fn.__name__):
+                with self.assertRaises(UnsupportedConstruct):
+                    equivalent(fn, identity, widths={"a": 3})
+
+    def test_a_construct_in_code_that_never_runs_still_counts(self):
+        """`yield` makes the whole function a generator wherever it sits, and a
+        body the compiler skips is not a body Python ignores."""
+        def identity(a): return a
+
+        def after_return(a):
+            return a
+            yield a
+
+        def in_an_empty_loop(a):
+            for _i in range(0):
+                yield a
+            return a
+
+        def in_a_dead_branch(a):
+            if False:
+                yield a
+            return a
+
+        for fn in (after_return, in_an_empty_loop, in_a_dead_branch):
+            with self.subTest(fn=fn.__name__):
+                with self.assertRaises(UnsupportedConstruct):
+                    equivalent(fn, identity, widths={"a": 3})
+
+    def test_the_subset_is_an_allowlist(self):
+        """A node nobody thought of has to raise. Listing the bad ones is how
+        the walrus got through."""
+        def identity(a): return a
+
+        cases = {
+            "global": "def f(a):\n    global q\n    return a\n",
+            "lambda": "def f(a):\n    g = lambda: 1\n    return a\n",
+            "del": "def f(a):\n    b = 1\n    del b\n    return a\n",
+            "assert": "def f(a):\n    assert a\n    return a\n",
+            "with": "def f(a):\n    with a:\n        pass\n    return a\n",
+            "try": "def f(a):\n    try:\n        pass\n    except E:\n        pass\n"
+                   "    return a\n",
+            "raise": "def f(a):\n    raise E\n    return a\n",
+            "import": "def f(a):\n    import os\n    return a\n",
+            "nested def": "def f(a):\n    def g():\n        return 1\n    return a\n",
+            "class": "def f(a):\n    class C:\n        pass\n    return a\n",
+            "list": "def f(a):\n    b = [a]\n    return a\n",
+            "subscript": "def f(a):\n    return a[0]\n",
+            "attribute": "def f(a):\n    return a.real\n",
+            "fstring": "def f(a):\n    b = f'{a}'\n    return a\n",
+            "yield expression": "def f(a):\n    b = (yield)\n    return a\n",
+            "power": "def f(a):\n    return a ** 2\n",
+            "true division": "def f(a):\n    return a / 2\n",
+            "is": "def f(a):\n    return a is a\n",
+            "in": "def f(a):\n    return a in a\n",
+        }
+        import tempfile, importlib.util, pathlib
+        with tempfile.TemporaryDirectory() as d:
+            for label, src in cases.items():
+                with self.subTest(label=label):
+                    path = pathlib.Path(d) / f"m_{abs(hash(label))}.py"
+                    path.write_text(src)
+                    spec = importlib.util.spec_from_file_location(path.stem, path)
+                    mod = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(mod)
+                    with self.assertRaises(UnsupportedConstruct) as cm:
+                        equivalent(mod.f, identity, widths={"a": 3})
+                    self.assertIn("line", str(cm.exception))
+
+    def test_annotations_and_constants_stay_in_the_subset(self):
+        def annotated(a: int) -> int:
+            """A docstring."""
+            ...
+            7
+            return a
+
+        def identity(a): return a
+
+        self.assertIs(equivalent(annotated, identity, widths={"a": 3}).proved, True)
+
     def test_missing_width_is_reported(self):
         def two(a, b):
             return a + b

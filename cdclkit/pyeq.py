@@ -44,7 +44,8 @@ guessed. `//` and `%` are supported only for constant powers of two, because
 general division needs a restoring divider whose cost is rarely worth it and
 whose silent wrong answer would be worse. Unsupported syntax raises
 `UnsupportedConstruct` with the line number. A verifier that quietly ignores a
-construct is worse than no verifier.
+construct is worse than no verifier, so the subset is a list of what is allowed
+(`_SUBSET`), checked over the whole body before anything compiles.
 """
 
 from __future__ import annotations
@@ -224,6 +225,54 @@ def _ite_bv(enc: Encoder, cond: int, a: BitVec, b: BitVec) -> BitVec:
 
 _CMP = {ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE}
 
+#: Every node a function body may contain. Anything else raises, wherever it
+#: sits: `yield` under `if False:` or after a `return` still makes the function
+#: a generator, and the compiler skips those bodies without looking. This is a
+#: list of the good ones because a list of the bad ones is how `(x := x + 1)`, a
+#: statement this module once took for a no-op, got a false proof.
+_SUBSET = (
+    ast.Assign, ast.AugAssign, ast.Return, ast.If, ast.For, ast.Pass, ast.Expr,
+    ast.Constant, ast.Name, ast.UnaryOp, ast.BinOp, ast.Compare, ast.BoolOp,
+    ast.IfExp, ast.Call,
+    ast.Load, ast.Store,
+    ast.USub, ast.UAdd, ast.Invert, ast.Not,
+    ast.Add, ast.Sub, ast.Mult, ast.FloorDiv, ast.Mod, ast.LShift, ast.RShift,
+    ast.BitAnd, ast.BitOr, ast.BitXor,
+    ast.And, ast.Or, *_CMP,
+)
+
+#: What to say for the two things people reach for most, instead of a node name.
+_SUBSET_HINTS = {
+    ast.While: "while loops (bound is not statically known; use "
+               "`for i in range(k)` with a constant k)",
+    ast.Call: "function calls (inline the callee, or pass it the callee into it)",
+}
+
+
+def _unsupported(line, what: str) -> "UnsupportedConstruct":
+    return UnsupportedConstruct(
+        f"line {line}: {what} is not supported. This checker models a "
+        f"restricted subset on purpose -- approximating it silently would "
+        f"make every 'equivalent' answer meaningless."
+    )
+
+
+def _check_subset(node: ast.AST, line="?", parent: ast.AST | None = None) -> None:
+    """Raise unless `node` and everything under it is in `_SUBSET`."""
+    line = getattr(node, "lineno", line)
+    allowed = isinstance(node, _SUBSET)
+    if isinstance(node, ast.Call):
+        # the one call there is: the iterable of a `for`, which unroll_for reads
+        allowed = isinstance(parent, ast.For) and node is parent.iter
+    elif isinstance(node, ast.Expr):
+        # a docstring, or `...`. Everything else a bare expression can be might
+        # bind a name, raise, yield or call, so "no effect" is not safe to assume.
+        allowed = isinstance(node.value, ast.Constant)
+    if not allowed:
+        raise _unsupported(line, _SUBSET_HINTS.get(type(node), type(node).__name__))
+    for child in ast.iter_child_nodes(node):
+        _check_subset(child, line, node)
+
 
 class _Compiler(ast.NodeVisitor):
     """Compile one function body into a circuit.
@@ -245,12 +294,7 @@ class _Compiler(ast.NodeVisitor):
     # -- helpers --------------------------------------------------------
 
     def _fail(self, node: ast.AST, what: str) -> None:
-        line = getattr(node, "lineno", "?")
-        raise UnsupportedConstruct(
-            f"line {line}: {what} is not supported. This checker models a "
-            f"restricted subset on purpose -- approximating it silently would "
-            f"make every 'equivalent' answer meaningless."
-        )
+        raise _unsupported(getattr(node, "lineno", "?"), what)
 
     def const(self, v: int) -> BitVec:
         return BitVec.constant(self.enc, v, self.width)
@@ -296,10 +340,6 @@ class _Compiler(ast.NodeVisitor):
         if isinstance(node, ast.IfExp):
             c = self.truth(node.test)
             return _ite_bv(self.enc, c, self.expr(node.body), self.expr(node.orelse))
-
-        if isinstance(node, ast.Call):
-            self._fail(node, "function calls (inline the callee, or pass it "
-                             "the callee into it)")
 
         self._fail(node, type(node).__name__)
 
@@ -464,13 +504,8 @@ class _Compiler(ast.NodeVisitor):
             self.unroll_for(node)
             return
 
-        if isinstance(node, (ast.Pass, ast.Expr)) and not isinstance(
-                getattr(node, "value", None), ast.Call):
-            return  # docstrings and bare expressions have no effect
-
-        if isinstance(node, ast.While):
-            self._fail(node, "while loops (bound is not statically known; use "
-                             "`for i in range(k)` with a constant k)")
+        if isinstance(node, (ast.Pass, ast.Expr)):
+            return  # `_check_subset` let only a pass or a constant through
 
         self._fail(node, type(node).__name__)
 
@@ -577,6 +612,8 @@ def compile_function(
 ) -> tuple[BitVec, dict[str, BitVec]]:
     """Compile `fn` into a circuit.  Returns (result, inputs used)."""
     tree = _function_ast(fn)
+    for stmt in tree.body:
+        _check_subset(stmt)
     if tree.args.vararg or tree.args.kwarg or tree.args.kwonlyargs:
         raise UnsupportedConstruct("*args, **kwargs and keyword-only parameters")
     if tree.args.defaults or tree.args.kw_defaults:
