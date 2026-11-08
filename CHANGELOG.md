@@ -85,6 +85,10 @@ that covers and what it does not.
 - **`at_most_k` and `exactly_k` took a negative k for zero.** They forced every
   input false and answered SAT. No count is negative, so they now add the empty
   clause, as `at_least_k` does above the far end.
+- **A later `Optimiser.run` could make `best` worse.** It searched from no bound
+  whatever `best` held and overwrote it regardless, so a loop resuming after a budget
+  was told a worse answer than it had. `best` now only improves, `run()` starts
+  below it, and `max_iterations` is per call. `optimise()` was not affected.
 
 ### Tests
 
