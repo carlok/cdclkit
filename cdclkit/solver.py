@@ -356,6 +356,14 @@ class Solver:
     be added and :meth:`solve` called again, optionally under assumptions.
     When solving under assumptions returns UNSAT, :attr:`conflict` holds the
     subset of assumptions responsible -- an unsatisfiable core.
+
+    An exception out of :meth:`solve` or :meth:`add_clause` (a KeyboardInterrupt,
+    a full disk under the proof writer) can land between any two writes, so what
+    it leaves behind cannot be trusted: a stale `seen` alone made later solves
+    learn clauses that do not follow, and answer UNSAT on satisfiable formulas.
+    Tidying up field by field would have to cover every line of the search, so the
+    solver marks itself :attr:`broken` instead and refuses further calls. Budgets
+    and deadlines are not exceptions and leave it whole.
     """
 
     def __init__(
@@ -404,11 +412,15 @@ class Solver:
         # -- scratch
         self.seen = bytearray()
         self._analyze_toclear: list[int] = []
-        self._lbd_stamp: list[int] = []
+        # indexed by decision level, which runs from 0 to nvars inclusive
+        self._lbd_stamp: list[int] = [0]
         self._lbd_gen = 0
 
         # -- control
         self.ok = True
+        #: set on entering anything that changes solver state, cleared on leaving
+        #: it normally, so that nothing has to run for an interrupt to count
+        self._busy = False
         self.assumptions: list[int] = []
         self.conflict: list[int] = []  # final core, in assumption polarity
         self.model: list[bool] = []
@@ -432,6 +444,8 @@ class Solver:
 
     def new_var(self, polarity: bool | None = None, decision: bool = True) -> int:
         """Allocate a fresh variable, returning its 0-based index."""
+        self._check_whole()
+        self._busy = True
         v = self.nvars
         self.nvars += 1
         self.val.extend((U, U))
@@ -450,6 +464,7 @@ class Solver:
         self.order.grow(self.nvars)
         if decision:
             self.order.insert(v)
+        self._busy = False
         return v
 
     def ensure_vars(self, n: int) -> None:
@@ -464,6 +479,18 @@ class Solver:
             self.order.remove(v)
 
     # ------------------------------------------------------------- accessors
+
+    @property
+    def broken(self) -> bool:
+        """True when an exception cut a call short.  See the class docstring."""
+        return self._busy
+
+    def _check_whole(self) -> None:
+        if self._busy:
+            raise RuntimeError(
+                "this Solver was interrupted in the middle of a call, so its "
+                "state cannot be trusted and any answer from it could be wrong. "
+                "Build a new one.")
 
     def value(self, lit: int) -> int:
         return self.val[lit]
@@ -491,6 +518,7 @@ class Solver:
         are dropped, and literals already false at level 0 are removed -- the
         latter is a strengthening step, so it is logged to the proof.
         """
+        self._check_whole()
         if not self.ok:
             return False
         if self.decision_level != 0:
@@ -515,7 +543,14 @@ class Solver:
                 continue  # root-false literal: drop it
             out.append(l)
 
-        if self.proof is not None and len(out) != len(seen):
+        # Up to here nothing has changed, so a bad literal in `lits` costs nothing.
+        self._busy = True
+        result = self._install_clause(out, len(seen))
+        self._busy = False
+        return result
+
+    def _install_clause(self, out: list[int], n_distinct: int) -> bool:
+        if self.proof is not None and len(out) != n_distinct:
             # We are adding a strengthened version of the user's clause.  It is
             # RUP (unit propagation on the root units derives it), so a plain
             # addition line is a valid DRAT step.
@@ -1317,25 +1352,34 @@ class Solver:
         Returns True (satisfiable, :attr:`model` set), False (unsatisfiable,
         :attr:`conflict` set when assumptions were used) or None when a
         conflict budget was exhausted.
+
+        A repeated assumption means the same as one. Each would open a decision
+        level, and a level with no variable of its own overran `_lbd_stamp`.
         """
+        self._check_whole()
         t0 = time.perf_counter()
-        self.model = []
-        self.conflict = []
-        self.assumptions = list(assumptions)
+        self._busy = True
         try:
+            self.model = []
+            self.conflict = []
+            self.assumptions = list(dict.fromkeys(assumptions))
             if not self.ok:
-                return False
-            self._cancel_until(0)
-            status = self._search(max_conflicts, deadline)
-            if status == SAT:
-                return True
-            if status == UNSAT:
-                return False
-            return None
-        finally:
-            self._cancel_until(0)
+                status = UNSAT
+            else:
+                self._cancel_until(0)
+                status = self._search(max_conflicts, deadline)
+                # Not in the `finally`: after an exception this could raise too,
+                # and hide the KeyboardInterrupt behind an AttributeError.
+                self._cancel_until(0)
             self.assumptions = []
+            self._busy = False
+        finally:
             self.stats.solve_time += time.perf_counter() - t0
+        if status == SAT:
+            return True
+        if status == UNSAT:
+            return False
+        return None
 
     def solve_dimacs_assumptions(self, dimacs: Sequence[int]) -> bool | None:
         return self.solve([from_dimacs(d) for d in dimacs])
