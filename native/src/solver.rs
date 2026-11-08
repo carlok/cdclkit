@@ -1424,10 +1424,12 @@ impl Solver {
 
     pub fn solve(&mut self, max_conflicts: Option<u64>) -> Option<bool> {
         self.sealed = true;
+        // Before the `ok` test: a formula already refuted has no model, and the
+        // one from an earlier solve is not one of it.
+        self.model.clear();
         if !self.ok {
             return Some(false);
         }
-        self.model.clear();
         self.cancel_until(0);
         let mut conflicts_here: u64 = 0;
 
@@ -1624,6 +1626,17 @@ mod tests {
             assert_eq!(res, Some(false), "PHP({}, {holes}) must be UNSAT", holes + 1);
             assert!(s.check_watch_invariant().is_empty());
         }
+    }
+
+    #[test]
+    fn a_refuted_re_solve_leaves_no_model() {
+        let mut s = Solver::new(1, Config::default());
+        s.add_clause(&[0]);
+        assert_eq!(s.solve(None), Some(true));
+        assert!(!s.model.is_empty());
+        assert!(!s.add_clause(&[1]));
+        assert_eq!(s.solve(None), Some(false));
+        assert!(s.model.is_empty());
     }
 
     #[test]
