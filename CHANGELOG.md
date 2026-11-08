@@ -102,6 +102,11 @@ that covers and what it does not.
 - `pyeq` crashed with a bare `TypeError` on a counterexample for positional-only
   parameters, which it also left out of the circuit. **They now raise
   `UnsupportedConstruct`.**
+- **The empty clause crashed both preprocessors.** It was a `ValueError` in Python
+  and a panic in Rust, which is a `BaseException` and went past the portfolio's
+  fallback, so `cdclkit solve g.cnf --preprocess -j 2` died on a formula as plain as
+  two contradictory units, while `CDCLKIT_ENGINE=python` answered. Both now report
+  UNSAT, and a preprocessor can be handed its own output.
 
 ### Tests
 

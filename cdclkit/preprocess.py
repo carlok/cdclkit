@@ -411,6 +411,13 @@ class Preprocessor:
 
     def run(self, rounds: int = 3) -> CNF:
         """Run the simplification loop and return the reduced formula."""
+        # Nothing below expects a clause with no literals, and one is valid input:
+        # it is what this method returns for UNSAT, so this can be handed its own
+        # output.
+        if any(not self.cls[i] for i in self.alive()):
+            self.unsat = True
+            self._emit_add(())
+            return self.to_cnf()
         for _ in range(rounds):
             self.stats.rounds += 1
             before = (self.stats.subsumed, self.stats.strengthened, self.stats.eliminated_vars)

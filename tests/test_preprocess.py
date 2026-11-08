@@ -14,16 +14,125 @@ Preprocessing is the one place in the toolkit where the transformed formula is
 
 from __future__ import annotations
 
+import os
+import pathlib
 import random
+import subprocess
+import sys
+import tempfile
 import unittest
 
+from cdclkit import native
 from cdclkit.brute import exhaustive_solve
 from dratify.cnf import CNF
 from dratify.lits import mk_lit, neg
+from cdclkit.pipeline import solve_adaptive
+from cdclkit.portfolio import solve_portfolio
 from cdclkit.preprocess import Preprocessor, preprocess
 from dratify.proof import MemoryProof, check_proof
 from cdclkit.solver import Solver
 from tests.util import random_cnf, fuzz_seed
+
+
+class TestEmptyClause(unittest.TestCase):
+    """Valid input, and what `Preprocessor.run` itself returns for UNSAT, so it can
+    be handed its own output. `subsume` took the rarest literal of each clause and
+    had no answer for a clause with none. In Python that was a ValueError, and in Rust
+    a panic, which is a BaseException and went past the portfolio's fallback."""
+
+    def _f(self):
+        f = CNF(2)
+        f.add([])
+        f.add([mk_lit(0), mk_lit(1)])
+        return f
+
+    def test_python_reports_unsat(self):
+        pre = Preprocessor(self._f())
+        red = pre.run()
+        self.assertTrue(pre.unsat)
+        self.assertIn((), red.clauses)
+
+    def test_it_is_logged_and_replays(self):
+        proof = MemoryProof()
+        f = self._f()
+        Preprocessor(f, proof=proof).run()
+        self.assertTrue(check_proof(f, proof.steps).ok)
+
+    def test_a_reduction_can_be_preprocessed_again(self):
+        f = CNF(1)
+        f.add([mk_lit(0)])
+        f.add([neg(mk_lit(0))])
+        red, first = preprocess(f)
+        self.assertTrue(first.unsat)
+        _, second = preprocess(red)
+        self.assertTrue(second.unsat)
+
+    @unittest.skipUnless(native.available(), "native engine not built")
+    def test_native_reports_unsat(self):
+        p = native.require().Preprocessor(2)
+        p.add_clause([])
+        p.add_clause([0, 2])
+        self.assertFalse(p.run(3))
+        self.assertTrue(p.unsat)
+        self.assertEqual(p.reduced(), [[]])
+
+    @unittest.skipUnless(native.available(), "native engine not built")
+    def test_native_logs_it(self):
+        p = native.require().Preprocessor(1, with_proof=True)
+        p.add_clause([])
+        p.run(3)
+        self.assertEqual(p.proof_steps(), [("a", [])])
+
+    def test_every_library_route_answers(self):
+        engines = ["python"] + (["native"] if native.available() else [])
+        for engine in engines:
+            with self.subTest(engine=engine, route="adaptive"):
+                r = solve_adaptive(self._f(), engine=engine, always_preprocess=True)
+                self.assertIs(r.sat, False)
+            with self.subTest(engine=engine, route="portfolio"):
+                r = solve_portfolio(self._f(), jobs=2, engine=engine, preprocess_workers=1)
+                self.assertIs(r.sat, False)
+
+
+class TestEmptyClauseOnTheCommandLine(unittest.TestCase):
+    """`--preprocess` makes the empty clause itself when it refutes, so this needs
+    nothing unusual in the input: two contradictory units and `-j 2`."""
+
+    CONTRADICTION = "p cnf 1 2\n1 0\n-1 0\n"
+    EMPTY = "p cnf 1 1\n0\n"
+
+    def _exit(self, text, *flags, engine=None):
+        env = dict(os.environ)
+        env.pop("CDCLKIT_ENGINE", None)
+        if engine is not None:
+            env["CDCLKIT_ENGINE"] = engine
+        with tempfile.TemporaryDirectory() as d:
+            path = pathlib.Path(d) / "f.cnf"
+            path.write_text(text)
+            r = subprocess.run([sys.executable, "-m", "cdclkit", *flags[:1], str(path),
+                                *flags[1:]],
+                               capture_output=True, text=True, timeout=120, env=env)
+        self.assertNotIn("Traceback", r.stderr)
+        return r.returncode, r.stdout
+
+    def test_every_route_says_unsat(self):
+        engines = ["python"] + (["native"] if native.available() else [])
+        for engine in engines:
+            for text in (self.CONTRADICTION, self.EMPTY):
+                for flags in (("solve", "--preprocess"),
+                              ("solve", "--preprocess", "-j", "2"),
+                              ("solve", "-j", "3"),
+                              ("solve", "--preprocess", "--adaptive"),
+                              ("solve", "--preprocess", "--self-check")):
+                    with self.subTest(engine=engine, text=text, flags=flags):
+                        code, out = self._exit(text, *flags, engine=engine)
+                        self.assertEqual(code, 20, out)
+                        self.assertIn("s UNSATISFIABLE", out)
+
+    def test_prep_writes_the_reduction(self):
+        code, out = self._exit(self.EMPTY, "prep")
+        self.assertEqual(code, 0, out)
+        self.assertIn("p cnf 1 1", out)
 
 
 class TestPreprocessing(unittest.TestCase):

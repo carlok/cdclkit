@@ -459,6 +459,14 @@ impl Preprocessor {
     // -- driver ---------------------------------------------------------
 
     pub fn run(&mut self, rounds: u32) -> bool {
+        // Nothing below expects a clause with no literals, and one is valid input:
+        // it is what `reduced` returns for UNSAT, so this can be handed its own
+        // output.
+        if self.clauses.iter().flatten().any(|c| c.is_empty()) {
+            self.unsat = true;
+            self.log_add(&[]);
+            return false;
+        }
         for _ in 0..rounds {
             self.stats.rounds += 1;
             let before = (
@@ -564,6 +572,16 @@ mod tests {
         assert_eq!(p.value[0], 1);
         assert_eq!(p.value[1], 1);
         assert_eq!(p.value[2], 1);
+    }
+
+    #[test]
+    fn an_empty_clause_is_a_contradiction() {
+        let mut p = Preprocessor::new(2);
+        p.add_clause(&[]);
+        p.add_clause(&[0, 2]);
+        assert!(!p.run(3));
+        assert!(p.unsat);
+        assert_eq!(p.reduced(), vec![Vec::<Lit>::new()]);
     }
 
     #[test]
