@@ -577,6 +577,37 @@ class TestPositionalOnly(unittest.TestCase):
             compile_function(c, Encoder(CNF()), {"a": 4})
 
 
+class TestInputValidation(unittest.TestCase):
+    """A width below 1 compiled to no bits at all, so the miter was the empty clause
+    and any two functions were "proved" equal, with a replayed proof: a computed width
+    of 0 would turn a CI gate into a no-op. An unknown engine name ran on Python,
+    the silent downgrade the `equivalent` docstring warns against."""
+
+    def test_a_width_below_one_is_refused(self):
+        def f(a): return a + 1
+        def g(a): return a
+        for w in (0, -1, 2.5, True, "8", None):
+            with self.subTest(width=w), self.assertRaises(UnsupportedConstruct):
+                equivalent(f, g, {"a": w})
+
+    def test_one_bit_is_a_width(self):
+        def f(a): return a + 1
+        def g(a): return a
+        self.assertIs(equivalent(f, g, {"a": 1}).proved, False)
+
+    def test_an_unknown_engine_is_refused(self):
+        def f(a): return a + 1
+        def g(a): return a
+        with self.assertRaises(ValueError):
+            equivalent(f, g, {"a": 3}, engine="nativ")
+
+    def test_each_engine_name_works(self):
+        def f(a): return a
+        for engine in ("auto", "python") + (("native",) if native.available() else ()):
+            with self.subTest(engine=engine):
+                self.assertIs(equivalent(f, f, {"a": 3}, engine=engine).proved, True)
+
+
 class TestRejection(unittest.TestCase):
     def _reject(self, fn, needle):
         with self.assertRaises(UnsupportedConstruct) as cm:
