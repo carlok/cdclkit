@@ -1021,3 +1021,53 @@ class TestNoInputs(unittest.TestCase):
         m.exactly_one([], method="totalizer")
         self.assertIsNone(m.solve())
 
+
+class TestNegativeK(unittest.TestCase):
+    """A sum of booleans is never negative. `at_most_k` took k < 0 for k = 0 and
+    forced everything false, which answered SAT, though `amk_sequential` and
+    `amk_totalizer` under it, and `at_least_k` on the far side, all knew better. A
+    negative bound comes from arithmetic: `budget - used`, once it has gone over."""
+
+    def _sat(self, f):
+        s = Solver(f.nvars)
+        return bool(s.add_cnf(f) and s.solve())
+
+    def test_nothing_is_at_most_or_exactly_negative(self):
+        for name in ("at_most_k", "exactly_k"):
+            for method in AMK_METHODS + ("auto",):
+                for n in (0, 1, 3):
+                    with self.subTest(name=name, method=method, n=n):
+                        f = CNF()
+                        xs = [mk_lit(f.new_var()) for _ in range(n)]
+                        getattr(Encoder(f), name)(xs, -1, method)
+                        self.assertFalse(self._sat(f))
+
+    def test_at_most_k_mirrors_at_least_k(self):
+        """`at_least_k(lits, n + 1)` is `at_most_k(~lits, -1)`, says its docstring."""
+        for n in (1, 3):
+            f, g = CNF(), CNF()
+            xs = [mk_lit(f.new_var()) for _ in range(n)]
+            ys = [mk_lit(g.new_var()) for _ in range(n)]
+            Encoder(f).at_least_k(xs, n + 1)
+            Encoder(g).at_most_k([neg(y) for y in ys], -1)
+            self.assertEqual(self._sat(f), self._sat(g))
+
+    def test_through_the_model(self):
+        from cdclkit.model import Model
+
+        for method in ("auto", "sequential", "totalizer"):
+            for name in ("at_most_k", "exactly_k"):
+                with self.subTest(method=method, name=name):
+                    m = Model()
+                    getattr(m, name)([m.bool_var("x")], -1, method=method)
+                    self.assertIsNone(m.solve())
+        m = Model()
+        m.at_most_k([], -1)
+        self.assertIsNone(m.solve())
+
+    def test_zero_still_means_none(self):
+        f = CNF()
+        xs = [mk_lit(f.new_var()) for _ in range(2)]
+        Encoder(f).at_most_k(xs, 0)
+        self.assertTrue(self._sat(f))
+
