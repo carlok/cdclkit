@@ -89,6 +89,10 @@ that covers and what it does not.
   whatever `best` held and overwrote it regardless, so a loop resuming after a budget
   was told a worse answer than it had. `best` now only improves, `run()` starts
   below it, and `max_iterations` is per call. `optimise()` was not affected.
+- **`IntVar` assumed an ascending domain with no repeats.** On `[2, 1]`, `x.ge(2)`
+  let 1 through and `x.le(1)` lost it, and on `[1, 1, 2]`, `x != 1` still allowed 1.
+  A domain is now sorted and deduplicated, so `x.domain` may differ from what was
+  passed in.
 
 ### Tests
 

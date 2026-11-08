@@ -1119,3 +1119,56 @@ class TestOptimiserKeepsItsBest(unittest.TestCase):
         opt.run(target=1, on_improve=lambda n, m: seen.append(n))
         self.assertEqual(seen, before)
 
+
+class TestDomainsAreSets(unittest.TestCase):
+    """`int_var` takes any iterable. The order ladder assumed it was ascending, and
+    a repeated value got a literal of its own that `is_` could not see, so `x != 1`
+    left `x = 1` standing through the second copy."""
+
+    def _values(self, domain, build=None):
+        from cdclkit.model import Model
+
+        m = Model()
+        x = m.int_var(domain, "x")
+        if build is not None:
+            m.add(build(x))
+        return [s[x] for s in m.solutions(project=[x])]
+
+    def test_ge_and_le_do_not_depend_on_domain_order(self):
+        self.assertEqual(self._values([2, 1], lambda x: x.ge(2)), [2])
+        self.assertEqual(self._values([2, 1], lambda x: x.le(1)), [1])
+
+    def test_a_repeated_value_is_one_value(self):
+        self.assertEqual(self._values([1, 1, 2], lambda x: x != 1), [2])
+        self.assertEqual(self._values([1, 1]), [1])
+
+    def test_every_comparison_on_every_order(self):
+        domains = [list(p) for p in itertools.permutations([1, 3, 4, 7])]
+        domains += [[3, 1, 3, 7, 1], [5], [5, 5], [-2, 3, -7]]
+        for dom in domains:
+            for t in range(-8, 10):
+                cases = (("ge", lambda x: x.ge(t), lambda v: v >= t),
+                         ("le", lambda x: x.le(t), lambda v: v <= t),
+                         ("eq", lambda x: x == t, lambda v: v == t),
+                         ("ne", lambda x: x != t, lambda v: v != t),
+                         ("in", lambda x: x.in_([t, t + 1]), lambda v: v in (t, t + 1)))
+                for label, build, spec in cases:
+                    with self.subTest(dom=dom, t=t, op=label):
+                        want = sorted(v for v in set(dom) if spec(v))
+                        self.assertEqual(sorted(self._values(dom, build)), want)
+
+    def test_two_variables_with_disordered_repeated_domains(self):
+        from cdclkit.model import Model
+
+        m = Model()
+        x, y = m.int_var([3, 1, 3], "x"), m.int_var([2, 3, 1, 1], "y")
+        m.add(x == y)
+        got = sorted(s[x] for s in m.solutions(project=[x, y]))
+        self.assertEqual(got, [1, 3])
+
+        m = Model()
+        x, y = m.int_var([2, 1, 2], "x"), m.int_var([1, 1, 2], "y")
+        m.all_different([x, y])
+        got = sorted((s[x], s[y]) for s in m.solutions(project=[x, y]))
+        self.assertEqual(got, [(1, 2), (2, 1)])
+
