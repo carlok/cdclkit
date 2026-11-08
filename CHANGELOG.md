@@ -126,6 +126,10 @@ that covers and what it does not.
   engine. **`Config` now raises `ValueError` on anything either engine would refuse,**
   including a seed outside u32 and `walk_interval=0`. `solve_adaptive` also refuses an
   unknown engine name, which used to run as Python.
+- **`pyeq` proved anything at a width of 0 or below.** No bits means an empty miter,
+  so `a + 1` was "equivalent" to `a`, with the proof replayed. **Such a width now
+  raises `UnsupportedConstruct`.** An unknown `engine` name, which used to run on
+  Python, raises `ValueError`.
 
 ### Tests
 

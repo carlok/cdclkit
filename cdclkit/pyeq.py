@@ -687,6 +687,12 @@ def compile_function(
             f"no width declared for parameter(s) {', '.join(missing)}; "
             f"pass widths={{'{missing[0]}': 8, ...}}"
         )
+    for n in names:
+        # No bits is no input, so the miter is empty and every pair is "proved"
+        # equal. A bit width of 0 or below is not a two's-complement integer.
+        if type(widths[n]) is not int or widths[n] < 1:
+            raise UnsupportedConstruct(
+                f"the width of {n} must be a positive integer, got {widths[n]!r}")
     width = _circuit_width(names, widths)
 
     env = dict(inputs) if inputs else {}
@@ -884,6 +890,9 @@ def equivalent(
     so it is never spurious.
     """
     import time
+
+    if engine not in ("auto", "native", "python"):
+        raise ValueError(f"unknown engine {engine!r} (expected auto, native or python)")
 
     # "Both functions must take the same parameters" is documented above and was
     # never checked. compile_function derives each circuit's internal width from
