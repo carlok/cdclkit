@@ -47,6 +47,9 @@ that covers and what it does not.
   integer. The subset is now an allowlist of AST nodes checked over the whole
   body, including code that never runs. **Now refused:** every bare expression
   statement but a constant (a docstring, `...`).
+- **`pyeq` ignored decorators.** With `functools.wraps` the undecorated source was
+  what compiled, so a function that doubles its result was proved equal to one
+  that does not. **Now refused:** any decorator, and anything with `__wrapped__`.
 
 ### Tests
 

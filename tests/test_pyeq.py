@@ -549,6 +549,37 @@ class TestRejection(unittest.TestCase):
 
         self.assertIs(equivalent(annotated, identity, widths={"a": 3}).proved, True)
 
+    def test_a_decorated_function_is_not_its_undecorated_body(self):
+        """`inspect.getsource` follows `__wrapped__`, so what compiled was not
+        the callable `equivalent` was handed."""
+        import functools
+
+        def double(fn):
+            @functools.wraps(fn)
+            def wrapper(a):
+                return fn(a) * 2
+            return wrapper
+
+        def nothing(fn):
+            return fn
+
+        @double
+        def wraps_it(a): return a
+
+        @nothing
+        def decorated_only(a): return a
+
+        def plain(a): return a
+
+        def wrapped_by_hand(a): return a
+        wrapped_by_hand.__wrapped__ = plain
+
+        for fn in (wraps_it, decorated_only, wrapped_by_hand):
+            for args in ((fn, plain), (plain, fn)):
+                with self.subTest(fn=fn.__name__, first=args[0].__name__):
+                    with self.assertRaises(UnsupportedConstruct):
+                        equivalent(*args, widths={"a": 3})
+
     def test_missing_width_is_reported(self):
         def two(a, b):
             return a + b
