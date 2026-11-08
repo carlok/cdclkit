@@ -50,6 +50,12 @@ that covers and what it does not.
 - **`pyeq` ignored decorators.** With `functools.wraps` the undecorated source was
   what compiled, so a function that doubles its result was proved equal to one
   that does not. **Now refused:** any decorator, and anything with `__wrapped__`.
+- **`pyeq` took `range` by name and read only its positional arguments.**
+  `range()` unrolled as `range(0)`, `range(stop=3)` lost its keyword, and any
+  other `range`, local or at module level, unrolled as Python's: with `def
+  range(n): return (0, 0, 0)` in the module, a loop adding 3 was proved to add 1.
+  **Now refused:** those, a parameter named `range`, a step of zero (it was a bare
+  `ValueError`) and a length past `sys.maxsize` (an `OverflowError`).
 
 ### Tests
 

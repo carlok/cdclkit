@@ -51,6 +51,7 @@ construct is worse than no verifier, so the subset is a list of what is allowed
 from __future__ import annotations
 
 import ast
+import builtins
 import inspect
 import textwrap
 from typing import Callable, Sequence
@@ -247,6 +248,35 @@ _SUBSET_HINTS = {
                "`for i in range(k)` with a constant k)",
     ast.Call: "function calls (inline the callee, or pass it the callee into it)",
 }
+
+
+_RANGE = range
+
+
+def _check_range_is_range(fn: Callable, tree: ast.FunctionDef) -> None:
+    """`range` must mean Python's, because that is what unroll_for models.
+
+    It matches the name, so anything else called `range` would unroll as if it
+    were not: with `def range(n): return (0, 0, 0)` at module level, a loop over
+    `range(1)` adds 3 and was proved to add 1. Locals alone do not cover it, so
+    this asks the function object as well as its source.
+    """
+    uses_range = False
+    for node in ast.walk(tree):
+        if isinstance(node, ast.arg) and node.arg == "range":
+            raise _unsupported(tree.lineno, "a parameter named `range`")
+        if isinstance(node, ast.Name) and node.id == "range":
+            if isinstance(node.ctx, ast.Store):
+                raise _unsupported(node.lineno, "a local variable named `range`")
+            uses_range = True
+    if not uses_range:
+        return
+    if "range" in fn.__code__.co_freevars:
+        raise _unsupported(tree.lineno, "a `range` from an enclosing function")
+    # __globals__ first, as Python looks it up; a module may import the real one
+    found = fn.__globals__.get("range", fn.__builtins__.get("range"))
+    if found is not _RANGE:
+        raise _unsupported(tree.lineno, "a `range` that is not the builtin")
 
 
 def _unsupported(line, what: str) -> "UnsupportedConstruct":
@@ -526,16 +556,21 @@ class _Compiler(ast.NodeVisitor):
         if not (isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
                 and call.func.id == "range"):
             self._fail(node, "iteration over anything but range(...)")
+        if call.keywords or not 1 <= len(call.args) <= 3:
+            self._fail(node, "range() without one to three positional arguments")
         args = []
         for a in call.args:
             if not (isinstance(a, ast.Constant) and isinstance(a.value, int)):
                 self._fail(node, "range() with a non-constant bound "
                                  "(the loop must be statically bounded to unroll)")
             args.append(a.value)
-        rng = range(*args) if args else range(0)
-        if len(rng) > 256:
-            self._fail(node, f"range of {len(rng)} iterations (limit 256; "
-                             f"unrolling is linear in the bound)")
+        if len(args) == 3 and args[2] == 0:
+            self._fail(node, "range() with a step of zero")
+        rng = range(*args)
+        # not len(rng), which raises OverflowError past sys.maxsize
+        if abs(rng.stop - rng.start) > 256 * abs(rng.step):
+            self._fail(node, "a range over 256 iterations (unrolling is linear in "
+                             "the bound)")
         if node.orelse:
             self._fail(node, "for/else")
         for i in rng:
@@ -622,6 +657,7 @@ def compile_function(
     tree = _function_ast(fn)
     for stmt in tree.body:
         _check_subset(stmt)
+    _check_range_is_range(fn, tree)
     if tree.args.vararg or tree.args.kwarg or tree.args.kwonlyargs:
         raise UnsupportedConstruct("*args, **kwargs and keyword-only parameters")
     if tree.args.defaults or tree.args.kw_defaults:

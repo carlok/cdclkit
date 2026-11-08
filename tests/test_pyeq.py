@@ -16,7 +16,13 @@ Three properties matter, in this order:
 
 from __future__ import annotations
 
+import contextlib
+import importlib.util
 import itertools
+import pathlib
+import tempfile
+import textwrap
+import types
 import unittest
 
 from cdclkit import native
@@ -399,6 +405,107 @@ class TestOperatorSemantics(unittest.TestCase):
         self._same_as_python(implicit, zero, "constant zero")
 
 
+@contextlib.contextmanager
+def _module(source):
+    """A real module from source: pyeq reads source, and a module-level binding
+    cannot be written inside a test."""
+    with tempfile.TemporaryDirectory() as d:
+        path = pathlib.Path(d) / "pyeq_case.py"
+        path.write_text(textwrap.dedent(source))
+        spec = importlib.util.spec_from_file_location("pyeq_case", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        yield mod
+
+
+class TestRange(unittest.TestCase):
+    """`range` was matched by name, and only its positional arguments were read.
+    So `range()` was `range(0)`, a keyword vanished, and a `range` that is not
+    Python's still unrolled as if it were."""
+
+    PLUS_ONE = "def plus_one(x):\n    return x + 1\n"
+
+    def _refused(self, source, g="plus_one"):
+        with _module(source + self.PLUS_ONE) as mod:
+            with self.assertRaises(UnsupportedConstruct):
+                equivalent(mod.f, getattr(mod, g), widths={"x": 3})
+
+    def test_the_wrong_number_of_arguments(self):
+        for args in ("", "1, 2, 3, 4", "stop=3", "1, stop=3", "*(1,)"):
+            with self.subTest(args=args):
+                self._refused(f"def f(x):\n    for i in range({args}):\n"
+                              f"        x = x + 1\n    return x\n")
+
+    def test_a_step_of_zero_is_a_refusal_not_a_crash(self):
+        self._refused("def f(x):\n    for i in range(1, 2, 0):\n"
+                      "        x = x + 1\n    return x\n")
+
+    def test_a_length_that_does_not_fit_is_a_refusal_not_a_crash(self):
+        self._refused(f"def f(x):\n    for i in range({2 ** 70}):\n"
+                      f"        x = x + 1\n    return x\n")
+
+    def test_a_module_level_range_is_not_range(self):
+        """The sharpest form. The program runs, and `f(1)` is 4 where `plus_one(1)`
+        is 2. Looking only at local names misses it."""
+        source = ("def range(n):\n    return (0, 0, 0)\n"
+                  "def f(x):\n    for i in range(1):\n        x = x + 1\n"
+                  "    return x\n" + self.PLUS_ONE)
+        with _module(source) as mod:
+            self.assertEqual((mod.f(1), mod.plus_one(1)), (4, 2))
+            with self.assertRaises(UnsupportedConstruct):
+                equivalent(mod.f, mod.plus_one, widths={"x": 3})
+
+    def test_a_local_range_is_not_range(self):
+        self._refused("def f(x):\n    range = 7\n    for i in range(1):\n"
+                      "        x = x + 1\n    return x\n")
+        self._refused("def f(x):\n    for i in range(1):\n        x = x + 1\n"
+                      "    range = 7\n    return x\n")
+
+    def test_a_loop_variable_called_range_is_not_range(self):
+        self._refused("def f(x):\n    for range in range(1):\n"
+                      "        x = x + 1\n    return x\n")
+
+    def test_a_parameter_called_range_is_not_range(self):
+        with _module("def f(x, range):\n    for i in range(1):\n"
+                     "        x = x + 1\n    return x\n") as mod:
+            with self.assertRaises(UnsupportedConstruct):
+                equivalent(mod.f, mod.f, widths={"x": 3, "range": 3})
+
+    def test_a_closure_range_is_not_range(self):
+        with _module("def make():\n    def range(n):\n        return (0, 0, 0)\n"
+                     "    def f(x):\n        for i in range(1):\n"
+                     "            x = x + 1\n        return x\n    return f\n"
+                     + self.PLUS_ONE) as mod:
+            with self.assertRaises(UnsupportedConstruct):
+                equivalent(mod.make(), mod.plus_one, widths={"x": 3})
+
+    def test_a_replaced_builtin_is_not_range(self):
+        with _module("def f(x):\n    for i in range(1):\n        x = x + 1\n"
+                     "    return x\n" + self.PLUS_ONE) as mod:
+            fake = types.FunctionType(
+                mod.f.__code__, {"__builtins__": {"range": lambda n: (0, 0, 0)}})
+            with self.assertRaises(UnsupportedConstruct):
+                equivalent(fake, mod.plus_one, widths={"x": 3})
+
+    def test_a_function_with_no_loop_may_have_a_range_nearby(self):
+        with _module("def range(n):\n    return (0, 0, 0)\n"
+                     "def f(x):\n    return x + 1\n" + self.PLUS_ONE) as mod:
+            self.assertIs(equivalent(mod.f, mod.plus_one, widths={"x": 3}).proved, True)
+
+    def test_real_range_still_unrolls(self):
+        for args, n in (("3", 3), ("1, 4", 3), ("0, 6, 2", 3), ("0", 0)):
+            with self.subTest(args=args), _module(
+                    f"def f(x):\n    for i in range({args}):\n        x = x + 1\n"
+                    f"    return x\ndef g(x):\n    return x + {n}\n") as mod:
+                self.assertIs(equivalent(mod.f, mod.g, widths={"x": 3}).proved, True)
+
+    def test_a_shadowing_import_of_the_real_one_is_fine(self):
+        with _module("from builtins import range\ndef f(x):\n"
+                     "    for i in range(1):\n        x = x + 1\n    return x\n"
+                     + self.PLUS_ONE) as mod:
+            self.assertIs(equivalent(mod.f, mod.plus_one, widths={"x": 3}).proved, True)
+
+
 class TestRejection(unittest.TestCase):
     def _reject(self, fn, needle):
         with self.assertRaises(UnsupportedConstruct) as cm:
@@ -525,18 +632,11 @@ class TestRejection(unittest.TestCase):
             "is": "def f(a):\n    return a is a\n",
             "in": "def f(a):\n    return a in a\n",
         }
-        import tempfile, importlib.util, pathlib
-        with tempfile.TemporaryDirectory() as d:
-            for label, src in cases.items():
-                with self.subTest(label=label):
-                    path = pathlib.Path(d) / f"m_{abs(hash(label))}.py"
-                    path.write_text(src)
-                    spec = importlib.util.spec_from_file_location(path.stem, path)
-                    mod = importlib.util.module_from_spec(spec)
-                    spec.loader.exec_module(mod)
-                    with self.assertRaises(UnsupportedConstruct) as cm:
-                        equivalent(mod.f, identity, widths={"a": 3})
-                    self.assertIn("line", str(cm.exception))
+        for label, src in cases.items():
+            with self.subTest(label=label), _module(src) as mod:
+                with self.assertRaises(UnsupportedConstruct) as cm:
+                    equivalent(mod.f, identity, widths={"a": 3})
+                self.assertIn("line", str(cm.exception))
 
     def test_annotations_and_constants_stay_in_the_subset(self):
         def annotated(a: int) -> int:
