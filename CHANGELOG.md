@@ -82,6 +82,9 @@ that covers and what it does not.
 - `Totalizer` over no inputs raised `RecursionError`, and so did `at_most_one([])`
   and `exactly_one([])` with `method="totalizer"`. The other methods always took
   the empty list. It now counts zero.
+- **`at_most_k` and `exactly_k` took a negative k for zero.** They forced every
+  input false and answered SAT. No count is negative, so they now add the empty
+  clause, as `at_least_k` does above the far end.
 
 ### Tests
 

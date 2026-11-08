@@ -503,9 +503,12 @@ class Encoder:
 
     def at_most_k(self, lits: Sequence[int], k: int, method: str = "auto") -> None:
         n = len(lits)
+        if k < 0:  # before `k >= n`, which would call -1 of nothing vacuous
+            self.add([])
+            return
         if k >= n:
             return
-        if k <= 0:
+        if k == 0:
             for x in lits:
                 self.add([neg(x)])
             return
