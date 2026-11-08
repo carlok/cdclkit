@@ -109,6 +109,13 @@ that covers and what it does not.
   UNSAT, and a preprocessor can be handed its own output.
 - After a re-solve refuted at the root, the native `Solver` still reported the old
   model, where the Python one reports none. The verdict was always right.
+- **`--adaptive` and `-j N` ignored `--conflicts`**, despite what 0.1.3 says here:
+  the budget never reached the pipeline, and neither it nor the portfolio could
+  take one. `solve_adaptive` and `solve_portfolio` now have `max_conflicts`, and out
+  of budget is `s UNKNOWN`, exit 0, on every route. It bounds an adaptive run as a
+  whole and each `-j` worker on its own. `--conflicts` with `-j` runs on processes
+  rather than threads, because a native thread cannot be stopped on a budget. A
+  negative budget is now an error.
 
 ### Tests
 

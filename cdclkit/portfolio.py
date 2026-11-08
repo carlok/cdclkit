@@ -206,7 +206,7 @@ def default_configs(n: int) -> list[Config]:
 # --------------------------------------------------------------------------
 
 
-def _worker_native(index, nvars, clauses, cfg_kwargs, want_proof):
+def _worker_native(index, nvars, clauses, cfg_kwargs, want_proof, budget=None):
     """Run one configuration on the native engine.  Returns None if unavailable.
 
     Each worker imports the native module independently -- under `spawn` the
@@ -244,7 +244,7 @@ def _worker_native(index, nvars, clauses, cfg_kwargs, want_proof):
         if not s.add_clause(c):
             ok = False
             break
-    res = s.solve() if ok else False
+    res = s.solve(budget) if ok else False
     dt = time.perf_counter() - t0
 
     stats = {
@@ -257,17 +257,18 @@ def _worker_native(index, nvars, clauses, cfg_kwargs, want_proof):
     }
     model = list(s.model) if res else None
     steps = None
-    if want_proof and not res:
+    if want_proof and res is False:
         # normalise to the same internal-literal form MemoryProof uses, so a
         # caller cannot tell which engine produced the proof
         steps = [(k, tuple(from_dimacs(d) for d in lits))
                  for k, lits in s.proof_steps()]
-    return (index, bool(res), model, steps, stats)
+    return (index, res, model, steps, stats)
 
 
 def _worker(payload):
     """Run one configuration.  Must be module-level: `spawn` pickles by name."""
-    (index, nvars, clauses, cfg_kwargs, want_proof, engine, preprocess) = payload
+    (index, nvars, clauses, cfg_kwargs, want_proof, engine, preprocess,
+     budget) = payload
 
     if preprocess:
         # This worker preprocesses first.  Measurement says the two strategies
@@ -294,7 +295,7 @@ def _worker(payload):
                      "engine": engine, "preprocessed": True})
         if reduced is not None:
             inner = (index, nvars, [list(c) for c in reduced.clauses],
-                     cfg_kwargs, False, engine, False)
+                     cfg_kwargs, False, engine, False, budget)
             idx, sat, model, _steps, stats = _worker(inner)
             stats["preprocessed"] = True
             if sat and reconstruct is not None:
@@ -305,7 +306,7 @@ def _worker(payload):
             return (idx, sat, model, None, stats)
 
     if engine == "native":
-        got = _worker_native(index, nvars, clauses, cfg_kwargs, want_proof)
+        got = _worker_native(index, nvars, clauses, cfg_kwargs, want_proof, budget)
         if got is not None:
             return got
         # fall through to Python when the native module is missing
@@ -320,7 +321,7 @@ def _worker(payload):
         if not s.add_clause(c):
             ok = False
             break
-    res = s.solve() if ok else False
+    res = s.solve(max_conflicts=budget) if ok else False
     dt = time.perf_counter() - t0
 
     stats = {
@@ -332,8 +333,8 @@ def _worker(payload):
         "engine": "python",
     }
     model = list(s.model) if res else None
-    steps = proof.steps if (proof is not None and not res) else None
-    return (index, bool(res), model, steps, stats)
+    steps = proof.steps if (proof is not None and res is False) else None
+    return (index, res, model, steps, stats)
 
 
 def _preprocess_for_worker(f, engine):
@@ -513,6 +514,7 @@ def solve_portfolio(
     timeout: float | None = None,
     engine: str = "native",
     preprocess_workers: int | None = None,
+    max_conflicts: int | None = None,
 ) -> PortfolioResult:
     """Solve `formula` with `jobs` differently-configured workers in parallel.
 
@@ -531,9 +533,16 @@ def solve_portfolio(
     the reference engine -- worth doing when comparing against
     `bench/baseline.json`, since the two engines are bit-exact but only the
     Python one is what the baseline was recorded from.
+
+    `max_conflicts` is each worker's own budget, since they share nothing. A worker
+    that runs out has no answer and the others keep racing; when all of them have,
+    `finished` is False and `sat` is None. It runs on processes, because the threaded
+    path has no way to stop a thread on a budget.
     """
     if engine not in ("native", "python"):
         raise ValueError(f"unknown engine {engine!r} (expected native or python)")
+    if max_conflicts is not None and max_conflicts < 0:
+        raise ValueError(f"max_conflicts must not be negative, got {max_conflicts}")
     if preprocess_workers is None:
         # Roughly two fifths of the workers preprocess.  Measured on the
         # benchmark set at jobs=5 (total seconds over 17 instances):
@@ -572,7 +581,8 @@ def solve_portfolio(
     # Threads first: same design, a thousandth of the startup cost.  Skipped
     # for proof runs and for the preprocessing-worker strategy, both of which
     # need the per-process path.
-    if jobs > 1 and engine == "native" and not in_worker():
+    if (jobs > 1 and engine == "native" and not in_worker()
+            and max_conflicts is None):
         if _native_threaded(formula, cfgs, result, preprocess_workers, want_proof):
             result.elapsed = time.perf_counter() - t0
             return result
@@ -580,12 +590,12 @@ def solve_portfolio(
     if jobs == 1:
         idx, sat, model, steps, stats = _worker(
             (0, formula.nvars, clauses, cfgs[0].as_dict(), want_proof, engine,
-             False))
+             False, max_conflicts))
         result.sat, result.model, result.proof_steps = sat, model, steps
         result.winner, result.winner_config, result.stats = idx, cfgs[0], stats
         result.engine = stats.get("engine", engine)
         result.elapsed = time.perf_counter() - t0
-        result.finished = True
+        result.finished = sat is not None
         return result
 
     method = usable_start_method()
@@ -597,14 +607,15 @@ def solve_portfolio(
         )
         return solve_portfolio(formula, jobs=1, configs=cfgs[:1],
                                want_proof=want_proof, timeout=timeout,
-                               engine=engine, preprocess_workers=0)
+                               engine=engine, preprocess_workers=0,
+                               max_conflicts=max_conflicts)
 
     ctx = multiprocessing.get_context(method)
     # The last `preprocess_workers` slots preprocess first; the rest race with
     # plain configuration diversity.
     payloads = [
         (i, formula.nvars, clauses, cfgs[i].as_dict(), want_proof, engine,
-         i >= jobs - preprocess_workers)
+         i >= jobs - preprocess_workers, max_conflicts)
         for i in range(jobs)
     ]
 
@@ -632,6 +643,7 @@ def solve_portfolio(
     deadline = (time.monotonic() + timeout) if timeout else None
     winner = None
     errors: list[str] = []
+    exhausted = 0
     try:
         while True:
             if deadline is not None and time.monotonic() > deadline:
@@ -649,6 +661,11 @@ def solve_portfolio(
             if item and item[0] == "error":
                 errors.append(f"worker {item[1]}: {item[2]}")
                 continue
+            if item[1] is None:  # out of budget, which is no answer
+                exhausted += 1
+                if exhausted == len(procs):
+                    break
+                continue
             winner = item
             break
     finally:
@@ -662,6 +679,8 @@ def solve_portfolio(
 
     result.elapsed = time.perf_counter() - t0
     if winner is None:
+        if exhausted:
+            return result  # not finished
         if errors:
             raise RuntimeError(
                 "every portfolio worker failed:\n  " + "\n  ".join(errors))
@@ -674,7 +693,8 @@ def solve_portfolio(
             )
             return solve_portfolio(formula, jobs=1, configs=cfgs[:1],
                                    want_proof=want_proof, timeout=timeout,
-                                   engine=engine, preprocess_workers=0)
+                                   engine=engine, preprocess_workers=0,
+                                   max_conflicts=max_conflicts)
         return result  # genuine timeout
 
     idx, sat, model, steps, stats = winner
