@@ -284,6 +284,55 @@ class TestOperatorSemantics(unittest.TestCase):
         def demorgan(x): return 0 if (x <= 0 or x >= 4) else 1
         self._same_as_python(both, demorgan, "de Morgan")
 
+    def test_boolean_operators_as_values(self):
+        """`and` and `or` return an operand. They were compiled to 0/1, which is
+        right for a comparison and wrong for anything else: `x or 5` at x = 2 is
+        2, and it was proved equal to `1`."""
+        def and_same(x): return x and x
+        def or_same(x): return x or x
+        def ident(x): return x
+        self._same_as_python(and_same, ident, "x and x is x")
+        self._same_as_python(or_same, ident, "x or x is x")
+
+        def or_five(x): return x or 5
+        def or_five_spelt(x): return x if x else 5
+        self._same_as_python(or_five, or_five_spelt, "a or b")
+
+        def and_five(x): return x and 5
+        def and_five_spelt(x): return 5 if x else x
+        self._same_as_python(and_five, and_five_spelt, "a and b")
+
+        def chained(x): return x and 3 and x - 1 or 7
+        def chained_spelt(x):
+            if x == 0:
+                return 7
+            if x - 1 == 0:
+                return 7
+            return x - 1
+        self._same_as_python(chained, chained_spelt, "a and b and c or d")
+
+        def comparisons(x): return (x > 0) and (x < 3)
+        def as_ints_flat(x): return 1 if x > 0 and x < 3 else 0
+        self._same_as_python(comparisons, as_ints_flat, "comparisons as operands")
+
+    def test_the_operand_is_not_a_truth_value(self):
+        def x_and_x(x): return x and x
+        def x_or_x(x): return x or x
+        def x_or_5(x): return x or 5
+        def x_and_5(x): return x and 5
+        def is_set(x): return 1 if x else 0
+        def one(x): return 1
+        engines = ["python"] + (["native"] if native.available() else [])
+        for engine in engines:
+            for f, g in ((x_and_x, is_set), (x_or_x, is_set), (x_or_5, one),
+                         (x_and_5, is_set)):
+                with self.subTest(f=f.__name__, g=g.__name__, engine=engine):
+                    r = equivalent(f, g, {"x": 3}, engine=engine)
+                    self.assertIs(r.proved, False, "they differ at x = 2")
+                    self.assertFalse(r.overflow_only, r.report())
+                    cex = r.counterexample
+                    self.assertNotEqual(f(**cex), g(**cex))
+
     def test_unary_and_ifexp(self):
         def neg_then_neg(x): return -(-x)
         def ident(x): return +x

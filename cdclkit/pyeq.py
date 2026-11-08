@@ -285,9 +285,13 @@ class _Compiler(ast.NodeVisitor):
         if isinstance(node, ast.BinOp):
             return self.binop(node)
 
-        if isinstance(node, (ast.Compare, ast.BoolOp)):
+        if isinstance(node, ast.Compare):
+            # 0 and 1, not an operand: True == 1 is what makes this the value
             c = self.truth(node)
             return _ite_bv(self.enc, c, self.const(1), self.const(0))
+
+        if isinstance(node, ast.BoolOp):
+            return self.bool_value(node)
 
         if isinstance(node, ast.IfExp):
             c = self.truth(node.test)
@@ -298,6 +302,23 @@ class _Compiler(ast.NodeVisitor):
                              "the callee into it)")
 
         self._fail(node, type(node).__name__)
+
+    def bool_value(self, node: ast.BoolOp) -> BitVec:
+        """`and` and `or` where the result is used as a number.
+
+        They return an operand: `a and b` is `b if a else a`, `a or b` is
+        `a if a else b`. Compiling them through `truth` gave 0 or 1, which is the
+        right value of a condition and a false proof here. `x or 5` is 2 at
+        x = 2, and it was proved equal to `1`. Short-circuiting needs no care
+        because an expression that compiles has no effect and cannot raise.
+        """
+        value = self.expr(node.values[-1])
+        for operand in reversed(node.values[:-1]):
+            a = self.expr(operand)
+            c = neg(a.is_zero())
+            value = (_ite_bv(self.enc, c, value, a) if isinstance(node.op, ast.And)
+                     else _ite_bv(self.enc, c, a, value))
+        return value
 
     def binop(self, node: ast.BinOp) -> BitVec:
         op = node.op

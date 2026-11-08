@@ -36,6 +36,11 @@ that covers and what it does not.
   **Refused now, where before they compiled to something else:** `a and b`, `a or
   b` and `not a` on a `BoolVar` or `IntVar`; `if a:`; `a in list` when it has to
   compare `a` with another variable; a bool as a cardinality item.
+- **`pyeq` compiled `and` and `or` in a value position to 0 or 1.** `x or 5` was
+  proved equal to `1`, with the proof replayed, while `x and x` was reported
+  different from `x` and blamed on an overflow that never happens. They now
+  return an operand, as Python's do. Conditions were always right, and comparisons
+  as values still compile to 0 and 1, because `True == 1`.
 
 ### Tests
 
