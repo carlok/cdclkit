@@ -598,7 +598,10 @@ class Totalizer:
 
     ``max_count`` truncates the counter: outputs above the cut are never
     created, since a bound of k never needs to distinguish k+2 from k+3.  The
-    truncated version is still arc consistent for the bound it was built for.
+    truncated version is still arc consistent for the bound it was built for,
+    and it cannot express anything beyond: ``sum <= k`` for k >= max_count and
+    ``sum >= k`` for k > max_count raise ``ValueError``, unless the inputs alone
+    decide them.
     """
 
     def __init__(self, enc: Encoder, lits: Sequence[int], max_count: int | None = None):
@@ -656,16 +659,25 @@ class Totalizer:
             return None
         if k < 0:
             return self.enc.false_lit
-        if k >= len(self.outputs):
-            return None
+        self._require_output(k)
         return neg(self.outputs[k])
 
     def at_least_lit(self, k: int) -> int | None:
         if k <= 0:
             return None
-        if k > len(self.inputs) or k > len(self.outputs):
+        if k > len(self.inputs):
             return self.enc.false_lit
+        self._require_output(k - 1)
         return self.outputs[k - 1]
+
+    def _require_output(self, i: int) -> None:
+        # Missing here means this counter stopped short, and says nothing about
+        # the bound. Reading it as "vacuous" dropped a constraint, and as
+        # "impossible" made a feasible problem unsatisfiable, with a valid proof.
+        if i >= len(self.outputs):
+            raise ValueError(
+                f"this counter was truncated with max_count={self.max_count}, so "
+                f"it cannot count to {i + 1} of its {len(self.inputs)} inputs")
 
     def assert_at_most(self, k: int) -> None:
         l = self.at_most_lit(k)

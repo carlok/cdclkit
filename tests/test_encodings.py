@@ -836,3 +836,60 @@ class TestPythonBooleansInExpressions(unittest.TestCase):
         sol = m.solve(proof=MemoryProof())
         self.assertIsNotNone(sol)
         self.assertEqual((sol[a], sol[b]), (False, False))
+
+
+class TestTruncatedTotalizerPastTheCut(unittest.TestCase):
+    """A truncated counter has no output past its cut, and it took that to mean
+    the bound was vacuous, or impossible. `sum <= 1` over two inputs with
+    `max_count=1` constrained nothing, and `sum >= 2` refuted a feasible problem
+    with a proof that replays."""
+
+    def _counter(self, n, max_count):
+        f = CNF()
+        xs = [mk_lit(f.new_var()) for _ in range(n)]
+        return f, xs, Totalizer(Encoder(f), xs, max_count=max_count)
+
+    def test_a_bound_it_cannot_express_is_refused(self):
+        for method in ("assert_at_most", "at_most_lit"):
+            with self.subTest(method=method), self.assertRaises(ValueError) as cm:
+                _, _, t = self._counter(2, 1)
+                getattr(t, method)(1)
+            self.assertIn("max_count", str(cm.exception))
+        for method in ("assert_at_least", "at_least_lit"):
+            with self.subTest(method=method), self.assertRaises(ValueError):
+                _, _, t = self._counter(2, 1)
+                getattr(t, method)(2)
+
+    def test_every_bound_it_does_answer_is_right(self):
+        for n in range(1, 5):
+            for cut in range(0, n + 2):
+                for k in range(-1, n + 3):
+                    for name, method, holds in (
+                            ("<=", "assert_at_most", lambda c: c <= k),
+                            (">=", "assert_at_least", lambda c: c >= k)):
+                        f, xs, t = self._counter(n, cut)
+                        try:
+                            getattr(t, method)(k)
+                        except ValueError:
+                            self.assertGreaterEqual(k, cut)
+                            self.assertLess(k, n if name == "<=" else n + 1)
+                            continue
+                        for bits in itertools.product((0, 1), repeat=n):
+                            s = Solver(f.nvars)
+                            ok = s.add_cnf(f)
+                            got = bool(ok and s.solve([x if b else neg(x)
+                                                       for x, b in zip(xs, bits)]))
+                            self.assertEqual(got, holds(sum(bits)),
+                                             f"n={n} cut={cut} sum{name}{k} {bits}")
+
+    def test_the_truly_vacuous_and_impossible_cases_stay(self):
+        _, _, t = self._counter(2, 1)
+        self.assertIsNone(t.at_most_lit(2))
+        self.assertIsNone(t.at_least_lit(0))
+        self.assertEqual(t.at_least_lit(3), t.enc.false_lit)
+        self.assertEqual(t.at_most_lit(-1), t.enc.false_lit)
+
+    def test_at_most_k_through_the_totalizer_is_unaffected(self):
+        check_against_spec(self, lambda e, xs: e.at_most_k(xs, 2, "totalizer"), 4,
+                           lambda bits: sum(bits) <= 2)
+
