@@ -7,6 +7,18 @@ that covers and what it does not.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`solve --preprocess --adaptive` printed a model of the reduced formula.**
+  `(x1)` gave `s SATISFIABLE`, `v -1`, exit 10, and `-j N` on top of it did the
+  same. The adaptive branch returned before the only `pre.reconstruct`. Every
+  route now goes through one function that reconstructs before checking or
+  printing. The library's `solve_adaptive` was never affected. UNSAT answers on
+  this route were right.
+- `--self-check` now evaluates a model against the input before reporting SAT,
+  as `--check-model` does. It only ever looked at refutations, so it could not
+  have caught the above.
+
 ### Tests
 
 - CI now runs `make lint` and `bench/compare.py --quick`, the part of
