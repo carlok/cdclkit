@@ -191,6 +191,10 @@ def solve_adaptive(
     so paying it before knowing the instance is hard would throw away exactly
     what the probe is for.
 
+    The engines' searches are bit-exact and their preprocessors are not, so past
+    the probe the model, `clauses_after`, the conflict count and the proof can
+    depend on the engine. The verdict does not.
+
     `max_conflicts` bounds the whole run, probe included, and on exhaustion the
     result has `sat is None`. Under `jobs > 1` what is left of it is each worker's
     own budget, as it is for :func:`~cdclkit.portfolio.solve_portfolio`.

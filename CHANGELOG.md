@@ -133,6 +133,23 @@ that covers and what it does not.
 - `Optimiser` with no soft literals ignored a negative bound, and returned a model
   for `count <= -1`. It now returns None, as it does with soft literals.
 
+### Known, and left open
+
+Found by the same campaign, reviewed, and not changed.
+
+- The preprocessors are not bit-exact, so the model, conflict count and proof can
+  depend on the engine once preprocessing runs. Porting blocked clause elimination
+  is real work, so AGENTS.md, the README and the docstrings now say bit-exactness
+  stops at the search. No verdict has differed.
+- Proof streams differ between the engines on search-only routes too. Each replays.
+- Preprocessed proofs delete a unit and then rely on it. They check under dratify's
+  rule and not under a literal reading of DRAT deletion.
+- `Model.solutions()` without `project` and `differential_solve` on a model with no
+  cardinality constraint do what their docstrings now say, which is less than they
+  appeared to promise. `pyeq`'s `proof_steps` still differs by engine, as
+  `tests/test_pyeq.py` documents, and `mus --method core --verify` still exits 1 on a
+  correct core that is not minimal, as its help now says.
+
 ### Tests
 
 - CI now runs `make lint` and `bench/compare.py --quick`, the part of

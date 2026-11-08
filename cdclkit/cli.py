@@ -537,7 +537,8 @@ def build_parser() -> argparse.ArgumentParser:
     mu.add_argument("--method", default="deletion",
                     choices=["deletion", "quickxplain", "core"])
     mu.add_argument("--verify", action="store_true",
-                    help="check that the result is unsatisfiable and minimal")
+                    help="check that the result is unsatisfiable and minimal; a "
+                         "core need not be, so --method core can exit 1 here")
     mu.set_defaults(func=cmd_mus)
 
     st = sub.add_parser("stats", help="formula statistics")

@@ -74,7 +74,7 @@ Stated because a benchmark section that only lists wins is marketing.
 
 ## Python against Rust
 
-The Rust engine is **bit-exact** with the Python one — identical conflicts,
+The Rust engine's search is **bit-exact** with the Python one — identical conflicts,
 decisions and propagations — and about **20x faster**: geometric mean 20.1x of
 per-instance ratios over 17 instances, spread 11x to 51x. Both are complete
 implementations; the Rust is a port, not a core with bindings.

@@ -78,16 +78,18 @@ as a failure, and an undecided one as a success. Both directions are wrong.
 
 ## Which engine solves
 
-`pip install "cdclkit[native]"` adds the Rust engine. It is bit-exact with the
-Python engine: identical conflicts, decisions and propagations, and there are
-tests that fail if that drifts. So the engine changes the speed, never the
-answer. Where each one is used:
+`pip install "cdclkit[native]"` adds the Rust engine. Its search is bit-exact
+with the Python engine: identical conflicts, decisions and propagations, and
+there are tests that fail if that drifts. Its preprocessor is not: it has no
+blocked clause elimination and visits clauses in another order. So where
+preprocessing runs, the engine can change the model, the conflict count and the
+proof, though no verdict has ever differed. Where each one is used:
 
 - `cdclkit solve` and `Solver` / `solve()` in the library: always Python.
 - `cdclkit solve --adaptive` or `-j N`, and `solve_adaptive()` /
   `solve_portfolio()`: native when it is installed, Python otherwise. Running
   `CDCLKIT_ENGINE=python cdclkit solve --adaptive` forces Python; that is how
-  to rule the native engine in or out of a suspect result. Setting
+  to rule the native engine in or out of a suspect verdict. Setting
   `CDCLKIT_ENGINE=native` without the build is an error, not a silent
   fallback. The CLI prints `c engine: ...` either way.
 - In the library, pass `engine="python"` or `engine="native"` instead.
