@@ -27,6 +27,15 @@ that covers and what it does not.
 - **`Model.solutions` poisoned later solves.** Its blocking clauses stayed on
   `self.solver`, so `solve()` after an enumeration returned None on a
   satisfiable model. Enumeration now has a solver of its own.
+- **A Python boolean in a model constrained variable 0.** `True` is the int 1,
+  which the encoder read as a literal. `add(True)` asserted the first variable
+  false, and `add(a == b)` on two `BoolVar`s, which Python evaluated to `False`,
+  asserted it true. `Encoder.tseitin` and `Model.add_clause` now take booleans
+  as constants. `BoolVar` has `==` and `!=`, which build constraints as they do
+  on `IntVar`, and are a `TypeError` against anything but a `BoolVar` or a bool.
+  **Refused now, where before they compiled to something else:** `a and b`, `a or
+  b` and `not a` on a `BoolVar` or `IntVar`; `if a:`; `a in list` when it has to
+  compare `a` with another variable; a bool as a cardinality item.
 
 ### Tests
 

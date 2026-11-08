@@ -719,3 +719,120 @@ class TestModelSolvesWhatItHolds(unittest.TestCase):
         proof = MemoryProof()
         self.assertIsNone(m.solve(proof=proof))
         self.assertTrue(check_proof(m.cnf, proof.steps).ok)
+
+
+def _bool_solutions(build):
+    from cdclkit.model import Model
+
+    m = Model()
+    a, b = m.bool_var("a"), m.bool_var("b")
+    build(m, a, b)
+    return {(s[a], s[b]) for s in m.solutions(project=[a, b])}
+
+
+ALL_TWO = {(False, False), (False, True), (True, False), (True, True)}
+
+
+class TestPythonBooleansInExpressions(unittest.TestCase):
+    """`True` is the int 1, so it reached the encoder as literal 1, which is
+    "not variable 0". `add(True)` asserted the first variable false and
+    `add(a == b)`, which Python evaluated to `False`, asserted it true."""
+
+    def test_add_true_constrains_nothing(self):
+        self.assertEqual(_bool_solutions(lambda m, a, b: m.add(True)), ALL_TWO)
+
+    def test_add_false_is_unsat(self):
+        self.assertEqual(_bool_solutions(lambda m, a, b: m.add(False)), set())
+
+    def test_constants_inside_a_tree_are_constants(self):
+        cases = [
+            (lambda m, a, b: m.add(b | False), {(False, True), (True, True)}),
+            (lambda m, a, b: m.add(b & True), {(False, True), (True, True)}),
+            (lambda m, a, b: m.add(b | True), ALL_TWO),
+            (lambda m, a, b: m.add(b & False), set()),
+            (lambda m, a, b: m.add(b >> False), {(False, False), (True, False)}),
+            (lambda m, a, b: m.add(b ^ True), {(False, False), (True, False)}),
+            (lambda m, a, b: m.add(("not", True)), set()),
+        ]
+        for i, (build, want) in enumerate(cases):
+            with self.subTest(i=i):
+                self.assertEqual(_bool_solutions(build), want)
+
+    def test_a_clause_may_hold_a_constant(self):
+        self.assertEqual(_bool_solutions(lambda m, a, b: m.add_clause([b, False])),
+                         {(False, True), (True, True)})
+        self.assertEqual(_bool_solutions(lambda m, a, b: m.add_clause([b, True])),
+                         ALL_TWO)
+
+    def test_a_cardinality_item_may_not_be_a_python_bool(self):
+        """These take literals, and there is no literal to map it to here."""
+        from cdclkit.model import Model
+
+        m = Model()
+        a = m.bool_var("a")
+        with self.assertRaises(TypeError):
+            m.at_most_one([True, a])
+        with self.assertRaises(TypeError):
+            m.exactly_k([False, a], 1)
+
+    def test_equality_on_booleans_means_equality(self):
+        same = {(False, False), (True, True)}
+        differ = ALL_TWO - same
+        self.assertEqual(_bool_solutions(lambda m, a, b: m.add(a == b)), same)
+        self.assertEqual(_bool_solutions(lambda m, a, b: m.add(a != b)), differ)
+        self.assertEqual(_bool_solutions(lambda m, a, b: m.add(a == ~b)), differ)
+        self.assertEqual(_bool_solutions(lambda m, a, b: m.add(b == True)),  # noqa: E712
+                         {(False, True), (True, True)})
+        self.assertEqual(_bool_solutions(lambda m, a, b: m.add(b != True)),  # noqa: E712
+                         {(False, False), (True, False)})
+
+    def test_equality_with_anything_else_is_refused(self):
+        """`a == 1` has no one meaning here: 1 is a literal and also Python's
+        True. Falling back to Python's answer is how this bug got in."""
+        from cdclkit.model import Model
+
+        a = Model().bool_var("a")
+        for other in (1, 0, "a", None):
+            with self.subTest(other=other), self.assertRaises(TypeError):
+                a == other
+            with self.subTest(other=other), self.assertRaises(TypeError):
+                a != other
+
+    def test_booleans_stay_usable_as_keys_and_members(self):
+        from cdclkit.model import Model
+
+        m = Model()
+        a, b = m.bool_var("a"), m.bool_var("b")
+        self.assertEqual({a: 1, b: 2}[b], 2)
+        self.assertEqual([a, b].index(a), 0)
+        with self.assertRaises(TypeError):  # would answer 0 if it were truthy
+            [a, b].index(b)
+
+    def test_truth_of_a_variable_is_refused(self):
+        """`a and b` is Python's `b`, and `not a` is Python's `False`. Neither
+        reaches an operator, so there is nothing to compile: refuse."""
+        from cdclkit.model import Model
+
+        m = Model()
+        a, b = m.bool_var("a"), m.bool_var("b")
+        x = m.int_var(range(3), "x")
+        for build in (lambda: a and b, lambda: a or b, lambda: not a,
+                      lambda: x and b, lambda: not x):
+            with self.assertRaises(TypeError):
+                build()
+
+    def test_a_wrong_answer_cannot_replay_any_more(self):
+        """The finding's sharpest form: UNSAT with a passing proof, on a
+        satisfiable problem."""
+        from dratify.proof import MemoryProof, check_proof
+
+        from cdclkit.model import Model
+
+        m = Model()
+        a, b = m.bool_var("a"), m.bool_var("b")
+        m.add(~a)
+        m.add(~b)
+        m.add(a == b)
+        sol = m.solve(proof=MemoryProof())
+        self.assertIsNotNone(sol)
+        self.assertEqual((sol[a], sol[b]), (False, False))
