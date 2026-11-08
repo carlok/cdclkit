@@ -1172,3 +1172,16 @@ class TestDomainsAreSets(unittest.TestCase):
         got = sorted((s[x], s[y]) for s in m.solutions(project=[x, y]))
         self.assertEqual(got, [(1, 2), (2, 1)])
 
+
+class TestOptimiserNoSoftLiterals(unittest.TestCase):
+    """The count over no literals is 0, and 0 <= -1 is false, but with no totalizer
+    the bound was simply dropped."""
+
+    def test_a_negative_bound_is_impossible(self):
+        self.assertIsNone(Optimiser(Solver(), []).solve_with_bound(-1))
+        self.assertIsNone(Optimiser(Solver(), []).run(target=-1))
+
+    def test_any_other_bound_holds(self):
+        self.assertEqual(Optimiser(Solver(), []).solve_with_bound(0), [])
+        self.assertEqual(Optimiser(Solver(), []).run(), (0, []))
+
