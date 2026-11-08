@@ -893,3 +893,89 @@ class TestTruncatedTotalizerPastTheCut(unittest.TestCase):
         check_against_spec(self, lambda e, xs: e.at_most_k(xs, 2, "totalizer"), 4,
                            lambda bits: sum(bits) <= 2)
 
+
+class TestUndeclaredInputs(unittest.TestCase):
+    """`CNF` and `Solver` both grow to cover a literal they have not seen, so
+    `from_dimacs` hands out literals nothing has declared. An auxiliary variable was
+    then the sink's next one, which could be one of the inputs: the binary encoding
+    of two undeclared inputs read `x1 -> ~x1`."""
+
+    def _agree(self, build, n, spec, sink=CNF):
+        xs = [mk_lit(i) for i in range(n)]
+        target = sink()
+        build(Encoder(target), xs)
+        f = target
+        for bits in itertools.product((0, 1), repeat=n):
+            if sink is CNF:
+                s = Solver(f.nvars)
+                ok = s.add_cnf(f)
+            else:
+                s, ok = target, True
+            assumptions = [x if b else neg(x) for x, b in zip(xs, bits)]
+            got = bool(ok and s.solve(assumptions))
+            self.assertEqual(got, spec(bits), f"{bits}")
+
+    def test_at_most_one(self):
+        for method in AMO_METHODS + ("auto",):
+            for n in (2, 3, 4, 7):
+                for sink in (CNF, Solver):
+                    with self.subTest(method=method, n=n, sink=sink.__name__):
+                        self._agree(lambda e, xs: e.at_most_one(xs, method), n,
+                                    lambda bits: sum(bits) <= 1, sink)
+
+    def test_cardinality(self):
+        for method in AMK_METHODS + ("auto",):
+            for n, k in ((3, 1), (4, 2), (5, 3)):
+                with self.subTest(method=method, n=n, k=k):
+                    self._agree(lambda e, xs: e.at_most_k(xs, k, method), n,
+                                lambda bits: sum(bits) <= k)
+                    self._agree(lambda e, xs: e.at_least_k(xs, k, method), n,
+                                lambda bits: sum(bits) >= k)
+                    self._agree(lambda e, xs: e.exactly_k(xs, k, method), n,
+                                lambda bits: sum(bits) == k)
+
+    def test_gates_and_constants(self):
+        def assert_output(gate):
+            return lambda e, xs: e.add([gate(e, xs)])
+
+        cases = [
+            ("and", assert_output(lambda e, xs: e.and_gate(xs)), all),
+            ("or", assert_output(lambda e, xs: e.or_gate(xs)), any),
+            ("xor", assert_output(lambda e, xs: e.xor_gate(xs[0], xs[1])),
+             lambda b: b[0] != b[1]),
+            ("ite", assert_output(lambda e, xs: e.ite(xs[0], xs[1], neg(xs[1]))),
+             lambda b: b[0] == b[1]),
+        ]
+        for label, build, spec in cases:
+            with self.subTest(label=label):
+                self._agree(build, 2, spec)
+
+    def test_a_gate_over_a_contradiction_does_not_take_an_input(self):
+        """The constant it returns needs a variable of its own."""
+        f = CNF()
+        enc = Encoder(f)
+        x = mk_lit(0)
+        self.assertEqual(enc.and_gate([x, neg(x)]) >> 1, 1)
+
+    def test_expression_trees(self):
+        def tree(e, xs):
+            e.assert_expr(("or", True, ("and", xs[0], xs[1])))
+
+        self._agree(tree, 2, lambda bits: True)
+        self._agree(lambda e, xs: e.add([e.tseitin(("and", xs[0], xs[1]))]), 2, all)
+        self._agree(lambda e, xs: e.assert_expr(("or", ("and", xs[0], xs[1]), xs[2])),
+                    3, lambda b: (b[0] and b[1]) or b[2])
+        self._agree(lambda e, xs: e.assert_expr(("not", ("xor", xs[0], False))), 1,
+                    lambda b: not b[0])
+
+    def test_pseudo_boolean_and_parity(self):
+        self._agree(lambda e, xs: e.assert_pb_leq([2, 3, 1], xs, 3), 3,
+                    lambda b: 2 * b[0] + 3 * b[1] + b[2] <= 3)
+        self._agree(lambda e, xs: e.assert_pb_geq([2, 3, 1], xs, 3), 3,
+                    lambda b: 2 * b[0] + 3 * b[1] + b[2] >= 3)
+        self._agree(lambda e, xs: e.xor_chain(xs), 4, lambda b: sum(b) % 2 == 1)
+
+    def test_totalizer_directly(self):
+        self._agree(lambda e, xs: Totalizer(e, xs).assert_at_most(1), 3,
+                    lambda bits: sum(bits) <= 1)
+

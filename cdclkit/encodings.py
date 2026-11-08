@@ -101,6 +101,12 @@ class Encoder:
     halves the clause count, and :meth:`tseitin` does apply it when you tell it
     the polarity; the individual ``*_gate`` helpers stay complete because they
     are also used to *define* variables the caller may reference either way.
+
+    A constraint may name variables the sink has not seen, as ``from_dimacs``
+    makes easy: anything that needs an auxiliary variable first grows the sink to
+    cover its own inputs. It cannot know about inputs of a *later* constraint, so
+    a program that numbers its own variables should declare them before the first
+    constraint rather than leave them to be taken.
     """
 
     #: Cap on direct XOR expansion, which emits 2^(k-1) clauses.  16 inputs is
@@ -143,6 +149,23 @@ class Encoder:
         for c in clauses:
             self.add(c)
 
+    def _declare(self, lits: Iterable[int]) -> None:
+        """Grow the sink to cover `lits`, before asking it for a fresh variable.
+
+        Its next variable is otherwise whatever it has not seen, which may be one
+        of these: the binary encoding of two undeclared inputs read `x1 -> ~x1`.
+        """
+        top = max(lits, default=-1) >> 1
+        while self.sink.nvars <= top:
+            self.sink.new_var()
+
+    def _declare_expr(self, expr) -> None:
+        if isinstance(expr, tuple):
+            for e in expr[1:]:
+                self._declare_expr(e)
+        elif not isinstance(expr, bool):
+            self._declare((expr,))
+
     @property
     def true_lit(self) -> int:
         """A literal that is forced true, created on first use."""
@@ -160,6 +183,7 @@ class Encoder:
 
     def and_gate(self, lits: Sequence[int], out: int | None = None) -> int:
         """``out <-> AND(lits)``.  Returns ``out``."""
+        self._declare(lits if out is None else [*lits, out])
         lits = self._simplify_and(lits)
         if lits is None:
             return self.false_lit
@@ -185,6 +209,7 @@ class Encoder:
 
     def xor_gate(self, a: int, b: int, out: int | None = None) -> int:
         """``out <-> a XOR b``."""
+        self._declare((a, b) if out is None else (a, b, out))
         key = ("xor", min(a, b), max(a, b))
         if out is None and key in self._cache:
             return self._cache[key]
@@ -205,6 +230,7 @@ class Encoder:
         on the chain is as strong as on the direct form as long as literals are
         fixed from the ends inwards.
         """
+        self._declare(lits)
         if not lits:
             if value:
                 self.add([])  # empty XOR is false; asserting true is a contradiction
@@ -225,6 +251,7 @@ class Encoder:
 
     def ite(self, c: int, t: int, e: int, out: int | None = None) -> int:
         """``out <-> (c ? t : e)``, the primitive every BDD encoding needs."""
+        self._declare((c, t, e) if out is None else (c, t, e, out))
         if t == e:
             return t
         key = ("ite", c, t, e)
@@ -284,6 +311,10 @@ class Encoder:
         occurs with one polarity can always be set to the value its definition
         prescribes.
         """
+        self._declare_expr(expr)
+        return self._tseitin(expr, polarity)
+
+    def _tseitin(self, expr, polarity: int) -> int:
         # before the int test, because True is the int 1 and 1 is a literal
         if isinstance(expr, bool):
             return self.true_lit if expr else self.false_lit
@@ -291,29 +322,29 @@ class Encoder:
             return expr
         op = expr[0]
         if op == "not":
-            return neg(self.tseitin(expr[1], -polarity))
+            return neg(self._tseitin(expr[1], -polarity))
         if op == "and":
-            kids = [self.tseitin(e, polarity) for e in expr[1:]]
+            kids = [self._tseitin(e, polarity) for e in expr[1:]]
             return self._and_pol(kids, polarity)
         if op == "or":
-            kids = [self.tseitin(e, polarity) for e in expr[1:]]
+            kids = [self._tseitin(e, polarity) for e in expr[1:]]
             return neg(self._and_pol([neg(k) for k in kids], -polarity))
         if op == "imp":
-            a = self.tseitin(expr[1], -polarity)
-            b = self.tseitin(expr[2], polarity)
+            a = self._tseitin(expr[1], -polarity)
+            b = self._tseitin(expr[2], polarity)
             return neg(self._and_pol([a, neg(b)], -polarity))
         if op == "iff":
-            a = self.tseitin(expr[1], 0)
-            b = self.tseitin(expr[2], 0)
+            a = self._tseitin(expr[1], 0)
+            b = self._tseitin(expr[2], 0)
             return neg(self.xor_gate(a, b))
         if op == "xor":
-            a = self.tseitin(expr[1], 0)
-            b = self.tseitin(expr[2], 0)
+            a = self._tseitin(expr[1], 0)
+            b = self._tseitin(expr[2], 0)
             return self.xor_gate(a, b)
         if op == "ite":
-            c = self.tseitin(expr[1], 0)
-            t = self.tseitin(expr[2], polarity)
-            e = self.tseitin(expr[3], polarity)
+            c = self._tseitin(expr[1], 0)
+            t = self._tseitin(expr[2], polarity)
+            e = self._tseitin(expr[3], polarity)
             return self.ite(c, t, e)
         raise ValueError(f"unknown operator {op!r}")
 
@@ -337,14 +368,15 @@ class Encoder:
 
     def assert_expr(self, expr) -> None:
         """Force an expression tree to be true, with polarity optimisation."""
+        self._declare_expr(expr)
         if isinstance(expr, tuple) and expr[0] == "and":
             for e in expr[1:]:
                 self.assert_expr(e)
             return
         if isinstance(expr, tuple) and expr[0] == "or":
-            self.add([self.tseitin(e, +1) for e in expr[1:]])
+            self.add([self._tseitin(e, +1) for e in expr[1:]])
             return
-        self.add([self.tseitin(expr, +1)])
+        self.add([self._tseitin(expr, +1)])
 
     # ------------------------------------------------------------ at-most-one
 
@@ -370,6 +402,7 @@ class Encoder:
         n = len(lits)
         if n <= 1:
             return
+        self._declare(lits)
         bits = max(1, (n - 1).bit_length())
         code = [self.new_lit() for _ in range(bits)]
         for i, x in enumerate(lits):
@@ -390,6 +423,7 @@ class Encoder:
         if len(lits) <= group:
             self.amo_pairwise(lits)
             return
+        self._declare(lits)
         commanders: list[int] = []
         for i in range(0, len(lits), group):
             g = lits[i : i + group]
@@ -447,6 +481,7 @@ class Encoder:
             for x in lits:
                 self.add([neg(x)])
             return
+        self._declare(lits)
         s = [[self.new_lit() for _ in range(k)] for _ in range(n - 1)]
         self.add([neg(lits[0]), s[0][0]])
         for j in range(1, k):
@@ -520,6 +555,7 @@ class Encoder:
         """
         if len(weights) != len(lits):
             raise ValueError("weights and literals must have equal length")
+        self._declare(lits)
         ws: list[int] = []
         ls: list[int] = []
         b = bound
@@ -607,6 +643,7 @@ class Totalizer:
     def __init__(self, enc: Encoder, lits: Sequence[int], max_count: int | None = None):
         self.enc = enc
         self.inputs = list(lits)
+        enc._declare(self.inputs)
         self.max_count = len(self.inputs) if max_count is None else min(
             max_count, len(self.inputs)
         )

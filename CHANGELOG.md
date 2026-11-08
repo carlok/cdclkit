@@ -72,6 +72,13 @@ that covers and what it does not.
   over two inputs with `max_count=1` constrained nothing, and `sum >= 2` refuted a
   feasible problem. All 876 such bounds in the campaign were wrong. **They now raise
   `ValueError`.** `at_most_k` and `Optimiser` never asked for one.
+- **An undeclared input could collide with an auxiliary variable.** `CNF` and
+  `Solver` grow to cover a literal they have not seen, but an encoding that needed
+  a fresh variable took the sink's next one, which could be one of its own inputs:
+  the binary encoding of two undeclared inputs read `x1 -> ~x1`. Every encoding
+  with auxiliary variables now covers its inputs first. It cannot foresee the inputs
+  of a later constraint, so a program numbering its own variables should still
+  declare them up front, as the `Encoder` docstring now says.
 
 ### Tests
 
