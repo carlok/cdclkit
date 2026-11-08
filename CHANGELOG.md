@@ -79,6 +79,9 @@ that covers and what it does not.
   with auxiliary variables now covers its inputs first. It cannot foresee the inputs
   of a later constraint, so a program numbering its own variables should still
   declare them up front, as the `Encoder` docstring now says.
+- `Totalizer` over no inputs raised `RecursionError`, and so did `at_most_one([])`
+  and `exactly_one([])` with `method="totalizer"`. The other methods always took
+  the empty list. It now counts zero.
 
 ### Tests
 

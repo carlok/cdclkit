@@ -979,3 +979,45 @@ class TestUndeclaredInputs(unittest.TestCase):
         self._agree(lambda e, xs: Totalizer(e, xs).assert_at_most(1), 3,
                     lambda bits: sum(bits) <= 1)
 
+
+class TestNoInputs(unittest.TestCase):
+    """A totalizer over nothing split its empty list in two for ever. A list built
+    from data can come up empty, and only this method fell over on it."""
+
+    def _sat(self, f):
+        s = Solver(f.nvars)
+        return bool(s.add_cnf(f) and s.solve())
+
+    def test_at_most_one_of_nothing_holds(self):
+        for method in AMO_METHODS + ("auto",):
+            with self.subTest(method=method):
+                f = CNF()
+                Encoder(f).at_most_one([], method)
+                self.assertTrue(self._sat(f))
+
+    def test_exactly_one_of_nothing_is_impossible(self):
+        for method in AMO_METHODS + ("auto",):
+            with self.subTest(method=method):
+                f = CNF()
+                Encoder(f).exactly_one([], method)
+                self.assertFalse(self._sat(f))
+
+    def test_the_counter_counts_zero(self):
+        f = CNF()
+        t = Totalizer(Encoder(f), [])
+        self.assertEqual(t.outputs, [])
+        self.assertIsNone(t.at_most_lit(0))
+        self.assertIsNone(t.at_least_lit(0))
+        self.assertEqual(t.at_least_lit(1), t.enc.false_lit)
+        self.assertEqual(t.at_most_lit(-1), t.enc.false_lit)
+
+    def test_through_the_model(self):
+        from cdclkit.model import Model
+
+        m = Model()
+        m.at_most_one([], method="totalizer")
+        self.assertIsNotNone(m.solve())
+        m = Model()
+        m.exactly_one([], method="totalizer")
+        self.assertIsNone(m.solve())
+
