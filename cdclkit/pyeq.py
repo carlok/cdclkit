@@ -647,6 +647,11 @@ def _function_ast(fn: Callable) -> ast.FunctionDef:
     raise UnsupportedConstruct("no function definition found in the source")
 
 
+def _circuit_width(names: Sequence[str], widths: dict[str, int]) -> int:
+    """The width everything in a circuit is compiled at, and so the one to claim."""
+    return max(widths[n] for n in names) if names else 8
+
+
 def compile_function(
     fn: Callable,
     enc: Encoder,
@@ -675,7 +680,7 @@ def compile_function(
             f"no width declared for parameter(s) {', '.join(missing)}; "
             f"pass widths={{'{missing[0]}': 8, ...}}"
         )
-    width = max(widths[n] for n in names) if names else 8
+    width = _circuit_width(names, widths)
 
     env = dict(inputs) if inputs else {}
     for n in names:
@@ -847,8 +852,9 @@ def equivalent(
 ) -> EquivalenceResult:
     """Prove `f` and `g` agree on every input, or return one where they differ.
 
-    `widths` maps each parameter name to its bit width. Both functions must
-    take the same parameters.
+    `widths` maps each parameter name to its bit width, and nothing else. Both
+    functions must take the same parameters. A function with no parameters is
+    compiled at 8 bits. `result.width` says what the circuit used.
 
     `engine` is "auto" by default: native when it is installed, Python
     otherwise. Asking for "native" explicitly raises when it is missing rather
@@ -886,6 +892,13 @@ def equivalent(
             f"{getattr(g, '__name__', g)} takes {names_g}. Equivalence is only "
             f"defined for the same inputs, and differing signatures would be "
             f"compiled at different widths.")
+    # A stray key is a typo at best, and it used to change the width the report
+    # claimed and not the width anything was compiled at.
+    stray = sorted(set(widths) - set(names_f))
+    if stray:
+        raise UnsupportedConstruct(
+            f"widths names {', '.join(stray)}, which is not a parameter of "
+            f"{getattr(f, '__name__', f)}{names_f}")
 
     t0 = time.perf_counter()
     formula = CNF()
@@ -900,7 +913,7 @@ def equivalent(
     enc.add([enc.xor_gate(x, y) for x, y in zip(a.bits, b.bits)])
 
     r = EquivalenceResult()
-    r.width = max(widths.values()) if widths else 0
+    r.width = _circuit_width(names_f, widths)
     r.vars = formula.nvars
     r.clauses = formula.nclauses
 
