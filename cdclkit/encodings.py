@@ -827,21 +827,29 @@ class Optimiser:
 
         Every iteration produces a real model, so stopping early still leaves
         :attr:`best` holding the best solution found -- the property that
-        matters when there is a time budget.
+        matters when there is a time budget. It only ever improves, whatever a
+        later call asks for. `max_iterations` applies to this call, so a loop
+        can resume with the same budget each time; :attr:`iterations` is the
+        total so far.
         """
         bound = target
+        if bound is None and self.best is not None:
+            bound = self.best[0] - 1
+        done = 0
         while True:
             model = self.solve_with_bound(bound)
             if model is None:
                 break
             self.iterations += 1
+            done += 1
             n = self.count(model)
-            self.best = (n, model)
-            if on_improve is not None:
-                on_improve(n, model)
+            if self.best is None or n < self.best[0]:
+                self.best = (n, model)
+                if on_improve is not None:
+                    on_improve(n, model)
             if n == 0:
                 break
-            if max_iterations and self.iterations >= max_iterations:
+            if max_iterations and done >= max_iterations:
                 break
             bound = n - 1
         return self.result()

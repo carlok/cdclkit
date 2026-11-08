@@ -1071,3 +1071,51 @@ class TestNegativeK(unittest.TestCase):
         Encoder(f).at_most_k(xs, 0)
         self.assertTrue(self._sat(f))
 
+
+class TestOptimiserKeepsItsBest(unittest.TestCase):
+    """`run()` started from no bound whatever `best` held, wrote `best`
+    unconditionally, and compared lifetime iterations with a per-call limit. So a
+    loop resuming after a budget was told a worse answer than it already had."""
+
+    def _optimiser(self):
+        s = Solver()
+        x = mk_lit(s.new_var())
+        return Optimiser(s, [neg(x)])
+
+    def test_a_later_stopped_run_does_not_lose_the_best(self):
+        opt = self._optimiser()
+        self.assertEqual(opt.run()[0], 0)
+        self.assertEqual(opt.run(max_iterations=1)[0], 0)
+        self.assertEqual(opt.best[0], 0)
+
+    def test_a_looser_target_does_not_lose_the_best(self):
+        opt = self._optimiser()
+        opt.run()
+        self.assertEqual(opt.run(target=1)[0], 0)
+        self.assertEqual(opt.best[0], 0)
+
+    def test_max_iterations_is_per_call(self):
+        s = Solver()
+        xs = [mk_lit(s.new_var()) for _ in range(6)]
+        s.add_clause([xs[0], xs[1]])
+        opt = Optimiser(s, xs)
+        first = opt.run(max_iterations=1)
+        steps, last = [first[0]], first[0]
+        while True:
+            now = opt.run(max_iterations=1)[0]
+            self.assertLessEqual(now, last)
+            if now == last:
+                break
+            steps.append(now)
+            last = now
+        self.assertEqual(last, 1)
+        self.assertEqual(opt.iterations, len(steps))
+
+    def test_on_improve_means_improved(self):
+        seen = []
+        opt = self._optimiser()
+        opt.run(on_improve=lambda n, m: seen.append(n))
+        before = list(seen)
+        opt.run(target=1, on_improve=lambda n, m: seen.append(n))
+        self.assertEqual(seen, before)
+
