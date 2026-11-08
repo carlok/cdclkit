@@ -31,6 +31,7 @@ from dratify.cnf import CNF
 
 from cdclkit import MemoryProof, parse_dimacs
 from cdclkit.pipeline import solve_adaptive
+from cdclkit.solver import Solver
 from cdclkit import native
 from tests.util import fuzz_seed
 
@@ -64,6 +65,13 @@ def _harder_unsat(seed=_SEED):
         vs = rng.sample(range(1, _N + 1), 3)
         f.add_dimacs([v if rng.random() < 0.5 else -v for v in vs])
     return f
+
+
+def _hard_php():
+    """A pigeonhole big enough that neither preprocessing nor luck solves it."""
+    from cdclkit.cli import gen_php
+
+    return gen_php(8, 7).to_dimacs()
 
 
 class TestAdaptiveEmitsACheckableProof(unittest.TestCase):
@@ -199,6 +207,81 @@ class TestAdaptiveCLI(unittest.TestCase):
         r = self._php(engine="quantum")
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
         self.assertIn("unknown CDCLKIT_ENGINE", r.stderr)
+
+
+class TestConflictBudgetEverywhere(unittest.TestCase):
+    """`--conflicts` reached only the plain route. CHANGELOG 0.1.3 listed it among
+    the flags `--adaptive` ignored and described the fix, and it still was: a caller
+    who set a budget got an unbounded run."""
+
+    _cli = TestAdaptiveCLI._cli
+    ROUTES = ((), ("--adaptive",), ("-j", "2"), ("--adaptive", "-j", "2"),
+              ("--preprocess", "--adaptive"), ("--preprocess", "-j", "2"))
+
+    def _run(self, budget, route, engine, text=None):
+        with tempfile.TemporaryDirectory() as d:
+            cnf = pathlib.Path(d) / "f.cnf"
+            cnf.write_text(text or _hard_php())
+            return self._cli("solve", str(cnf), "--conflicts", str(budget), *route,
+                             engine=engine)
+
+    def _engines(self):
+        return ["python"] + (["native"] if native.available() else [])
+
+    def test_a_budget_too_small_is_unknown_on_every_route(self):
+        for engine in self._engines():
+            for route in self.ROUTES:
+                for budget in (0, 3):
+                    with self.subTest(engine=engine, route=route, budget=budget):
+                        r = self._run(budget, route, engine)
+                        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+                        self.assertIn("s UNKNOWN", r.stdout)
+                        self.assertNotIn("s UNSATISFIABLE", r.stdout)
+
+    def test_a_budget_big_enough_answers(self):
+        for engine in self._engines():
+            for route in self.ROUTES:
+                with self.subTest(engine=engine, route=route):
+                    r = self._run(10_000_000, route, engine, PHP)
+                    self.assertEqual(r.returncode, 20, r.stdout + r.stderr)
+
+    def test_a_negative_budget_is_an_error(self):
+        for route in self.ROUTES:
+            with self.subTest(route=route):
+                r = self._run(-1, route, None)
+                self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+                self.assertNotIn("Traceback", r.stderr)
+
+    def test_the_library_takes_a_budget(self):
+        from cdclkit.portfolio import solve_portfolio
+
+        for engine in self._engines():
+            with self.subTest(engine=engine):
+                f = parse_dimacs(_hard_php())
+                self.assertIsNone(solve_adaptive(f.copy(), engine=engine,
+                                                 max_conflicts=5).sat)
+                self.assertIsNone(solve_adaptive(f.copy(), engine=engine, max_conflicts=5,
+                                                 never_preprocess=True).sat)
+                self.assertIsNone(solve_adaptive(f.copy(), engine=engine, max_conflicts=5,
+                                                 always_preprocess=True).sat)
+                for jobs in (1, 2):
+                    r = solve_portfolio(f.copy(), jobs=jobs, engine=engine,
+                                        max_conflicts=5, preprocess_workers=0)
+                    self.assertIsNone(r.sat)
+                    self.assertFalse(r.finished)
+                self.assertIs(solve_adaptive(parse_dimacs(PHP), engine=engine,
+                                             max_conflicts=100_000).sat, False)
+
+    def test_the_budget_covers_the_probe_too(self):
+        """The limit is checked between conflicts, so a run may pass it by a few.
+        It must be the same few as a plain solve with the same budget."""
+        f = parse_dimacs(_hard_php())
+        plain = Solver(f.nvars)
+        plain.add_cnf(f)
+        self.assertIsNone(plain.solve(max_conflicts=5))
+        r = solve_adaptive(f, engine="python", max_conflicts=5)
+        self.assertEqual(r.conflicts, plain.stats.conflicts)
+        self.assertFalse(r.preprocessed, "no budget left to preprocess for")
 
 
 class TestPreprocessThenSearch(unittest.TestCase):

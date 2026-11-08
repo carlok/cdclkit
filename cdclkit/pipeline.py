@@ -176,6 +176,7 @@ def solve_adaptive(
     jobs: int = 1,
     seconds: float | None = None,
     proof=None,
+    max_conflicts: int | None = None,
 ) -> PipelineResult:
     """Solve `f`, preprocessing only when a short probe says it is worth it.
 
@@ -189,8 +190,14 @@ def solve_adaptive(
     costs ~60 ms, which is more than an easy instance takes to solve outright,
     so paying it before knowing the instance is hard would throw away exactly
     what the probe is for.
+
+    `max_conflicts` bounds the whole run, probe included, and on exhaustion the
+    result has `sat is None`. Under `jobs > 1` what is left of it is each worker's
+    own budget, as it is for :func:`~cdclkit.portfolio.solve_portfolio`.
     """
     cfg = config or Config()
+    if max_conflicts is not None and max_conflicts < 0:
+        raise ValueError(f"max_conflicts must not be negative, got {max_conflicts}")
     if engine == "native" and not _native_available():
         engine = "python"
     if proof is not None and jobs > 1:
@@ -208,16 +215,21 @@ def solve_adaptive(
 
     if not never_preprocess and not always_preprocess:
         # The probe is a real solve and may refute outright, so it logs too.
-        status, model, conflicts = _solve(f, cfg, probe, engine, proof=proof)
+        budget = probe if max_conflicts is None else min(probe, max_conflicts)
+        status, model, conflicts = _solve(f, cfg, budget, engine, proof=proof)
         r.probe_conflicts = conflicts
-        if status is not None:
+        # a probe holding the whole budget is the whole run, answered or not
+        if status is not None or budget == max_conflicts:
             r.sat, r.model, r.conflicts = status, model, conflicts
             r.seconds = time.perf_counter() - t_start
             r.clauses_after = f.nclauses
             return r
 
+    remaining = (None if max_conflicts is None
+                 else max(0, max_conflicts - r.probe_conflicts))
+
     if never_preprocess:
-        status, model, conflicts = _solve(f, cfg, None, engine, seconds,
+        status, model, conflicts = _solve(f, cfg, remaining, engine, seconds,
                                           proof=proof)
         r.sat, r.model, r.conflicts = status, model, conflicts
         r.seconds = time.perf_counter() - t_start
@@ -241,12 +253,13 @@ def solve_adaptive(
         # asking for preprocessing workers here would both redo the work and
         # force the process-based path, paying ~60 ms of startup for nothing
         pr = solve_portfolio(red, jobs=jobs, engine=engine,
-                             preprocess_workers=0, timeout=seconds)
+                             preprocess_workers=0, timeout=seconds,
+                             max_conflicts=remaining)
         status = pr.sat
         model = pr.model
         conflicts = pr.stats.get("conflicts", 0)
     else:
-        status, model, conflicts = _solve(red, cfg, None, engine, seconds,
+        status, model, conflicts = _solve(red, cfg, remaining, engine, seconds,
                                           proof=proof)
     r.conflicts = conflicts + r.probe_conflicts
     r.sat = status

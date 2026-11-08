@@ -90,6 +90,8 @@ def _emit_model(model: Sequence[bool], out=None, per_line: int = 20) -> None:
 
 
 def cmd_solve(args) -> int:
+    if args.conflicts is not None and args.conflicts < 0:
+        raise ValueError(f"--conflicts must not be negative, got {args.conflicts}")
     f = parse_dimacs_file(args.file)
     print(f"c cdclkit :: {args.file}")
     print(f"c formula: {f.nvars} vars, {f.nclauses} clauses")
@@ -144,9 +146,13 @@ def cmd_solve(args) -> int:
             config=cfg,
             jobs=jobs,
             proof=proof_sink,
+            max_conflicts=args.conflicts,
         )
         print(pr.report())
         print(f"c {pr.conflicts} conflicts in {pr.seconds:.3f}s")
+        if pr.sat is None:
+            print("s UNKNOWN")
+            return EXIT_UNKNOWN
         if pr.sat:
             return _finish_sat(args, pr.model, pre, original)
         print("s UNSATISFIABLE")
@@ -164,7 +170,8 @@ def cmd_solve(args) -> int:
         if engine is None:
             return EXIT_ERROR
         pr = solve_portfolio(f, jobs=jobs, engine=engine,
-                             want_proof=proof_sink is not None)
+                             want_proof=proof_sink is not None,
+                             max_conflicts=args.conflicts)
         if not pr.finished:
             print("s UNKNOWN")
             return EXIT_UNKNOWN
@@ -471,7 +478,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="probe briefly, then preprocess only if the instance "
                         "turns out to be hard enough to repay it")
     s.add_argument("--prep-rounds", type=int, default=3)
-    s.add_argument("--conflicts", type=int, default=None, help="conflict budget")
+    s.add_argument("--conflicts", type=int, default=None,
+                   help="conflict budget; under -j, per worker. Out of budget is "
+                        "s UNKNOWN, exit 0")
     # Every search default comes from Config() rather than a literal. They were
     # literals, and --restart drifted to "glucose" while the library moved to
     # "luby" -- so the CLI quietly ran the policy the CHANGELOG says was
