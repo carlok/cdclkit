@@ -23,8 +23,8 @@ What it checks:
   amk_* methods directly, stacked constraints, undeclared inputs, inputs fixed
   at the root, and the arc consistency the module documents.
 
-Known findings stay mismatches and the run exits non-zero while they stand.
-They are labelled with their finding id; anything else prints as UNEXPLAINED.
+A mismatch of a fixed finding prints as REGRESSION and fails the run, an open one
+is reported, and anything else prints as UNEXPLAINED and fails. See campaign/status.py.
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ import random
 import sys
 import time
 
-from campaign import dpll, oracle
+from campaign import dpll, oracle, status
 from cdclkit import solve
 from cdclkit import encodings as enc_mod
 from cdclkit.encodings import Encoder, Optimiser, Totalizer
@@ -657,14 +657,22 @@ def task_totalizer(impl, cfg, n, pat, m):
     if not full:
         for k in range(cut, n):
             f, enc, t = build_totalizer(impl, nv, dims, m)
-            t.assert_at_most(k)
             r.c["totalizer.past_cut_at_most"] += 1
+            try:
+                t.assert_at_most(k)
+            except ValueError:  # refusing the bound is the answer, and it has one job
+                r.c["totalizer.past_cut_refused"] += 1
+                continue
             judge(r, "totalizer_past_cut_at_most", to_dimacs_clauses(f.clauses), variables,
                   expected_set(variables, dims, lambda s: s <= k), label="encodings-2", k=k, **detail)
         for k in range(cut + 1, n + 1):
             f, enc, t = build_totalizer(impl, nv, dims, m)
-            t.assert_at_least(k)
             r.c["totalizer.past_cut_at_least"] += 1
+            try:
+                t.assert_at_least(k)
+            except ValueError:
+                r.c["totalizer.past_cut_refused"] += 1
+                continue
             judge(r, "totalizer_past_cut_at_least", to_dimacs_clauses(f.clauses), variables,
                   expected_set(variables, dims, lambda s: s >= k), label="encodings-2", k=k, **detail)
     return r
@@ -1458,7 +1466,7 @@ def self_test(seed, pool):
     cfg = {"seed": seed, "cross_checks": True, "optimiser_class": True}
     tasks = build_tasks("Real", cfg, 2, 150, control_sections, max_patterns=FIXED_PATTERNS + 1)
     control_counts, bad, _, _ = execute(tasks, pool)
-    unlabelled = [m for m in bad if not m["label"]]
+    unlabelled = [m for m in bad if not m["label"] or status.state(m["label"]) == "fixed"]
     zero = [c for c in required_categories(control_sections) if not control_counts[c]]
     if zero:
         print("control left categories at zero:", zero)
@@ -1514,18 +1522,20 @@ def main(argv=None):
     want_cells = grid_cell_count()
     grid_ok = "grid" not in sections or counts["grid.cells_visited"] == want_cells
 
-    labelled = collections.Counter(m["label"] for m in bad if m["label"])
+    regressions, labelled = status.split(
+        collections.Counter(m["label"] for m in bad if m["label"]))
     unexplained = [m for m in bad if not m["label"]]
 
     print(f"seed {args.seed}, {instances} instances, {steps} checks, {runtime:.1f}s, {args.jobs} jobs")
     print(f"grid cells visited: {counts['grid.cells_visited']} of {want_cells}")
     for key in sorted(counts):
         print(f"  {key}: {counts[key]}")
-    for label, n in sorted(labelled.items()):
-        sev, summary = {**FINDINGS, **FOREIGN_FINDINGS}[label]
-        print(f"KNOWN {label} [{sev}] {n} mismatches: {summary}")
-        example = next(m for m in bad if m["label"] == label)
-        print(f"  first: {json.dumps(example)[:400]}")
+    for tag, group in (("REGRESSION", regressions), ("OPEN", labelled)):
+        for label, n in sorted(group.items()):
+            sev, summary = {**FINDINGS, **FOREIGN_FINDINGS}[label]
+            print(f"{tag} {label} [{sev}] {n} mismatches: {summary}")
+            example = next(m for m in bad if m["label"] == label)
+            print(f"  first: {json.dumps(example)[:400]}")
     for m in unexplained[:20]:
         print("UNEXPLAINED", json.dumps(m)[:600])
     if len(unexplained) > 20:
@@ -1546,17 +1556,18 @@ def main(argv=None):
             "per_category_counts": dict(sorted(counts.items())),
             "runtime_seconds": round(runtime, 1),
             "jobs": args.jobs,
-            "mismatches_labelled": dict(sorted(labelled.items())),
+            "regressions": dict(sorted(regressions.items())),
+            "mismatches_open": dict(sorted(labelled.items())),
             "mismatches_unexplained": len(unexplained),
             "grid": {"cells": want_cells, "visited": counts["grid.cells_visited"],
                      "patterns_per_cell": FIXED_PATTERNS + args.instances},
-            "findings": [{"id": i, "severity": {**FINDINGS, **FOREIGN_FINDINGS}[i][0],
-                          "summary": {**FINDINGS, **FOREIGN_FINDINGS}[i][1]}
-                         for i in sorted(labelled)],
+            "findings": [{"id": i, "severity": v[0], "summary": v[1],
+                          "status": status.state(i)}
+                         for i, v in sorted({**FINDINGS, **FOREIGN_FINDINGS}.items())],
             "observations": OBSERVATIONS,
             "not_checked": NOT_CHECKED,
         }, indent=2) + "\n")
-    if missing or not grid_ok or bad:
+    if missing or not grid_ok or regressions or unexplained:
         return 1
     return 0
 

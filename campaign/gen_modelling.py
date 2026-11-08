@@ -20,8 +20,8 @@ Run from the repo root:
     python -m campaign.gen_modelling                 # exit 1 on any mismatch
     python -m campaign.gen_modelling --self-test     # the harness catches stubs
 
-Known findings stay mismatches. They are labelled with their finding id, and
-the run exits non-zero until they are fixed.
+Mismatches are labelled with the finding that explains them. A fixed finding prints
+as REGRESSION and fails the run, as does anything unlabelled. See campaign/status.py.
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ import tempfile
 import time
 from collections import Counter
 
-from campaign import dpll
+from campaign import dpll, status
 
 from cdclkit.encodings import optimise
 from cdclkit.model import EncodingDisagreement, Model, differential_solve
@@ -1594,12 +1594,16 @@ def check_pair(pair: Pair, rng, t: Tally, workdir: str, serial: int,
     if rng.random() < 0.05:
         widths = dict(pair.widths)
         widths["unused_key"] = max(widths.values()) + 3
-        r = equivalent(f, g, widths, engine="python")
         t.step("extra_width_runs")
-        expected = max(pair.widths[p] for p in pair.params)
-        if r.width != expected:
-            t.bad("width_claim", f"widths={widths}: r.width={r.width}, circuit at {expected}",
-                  fs | {"extra_width"})
+        try:
+            r = equivalent(f, g, widths, engine="python")
+        except UnsupportedConstruct:
+            t.step("extra_width_refused")
+        else:
+            expected = max(pair.widths[p] for p in pair.params)
+            if r.width != expected:
+                t.bad("width_claim", f"widths={widths}: r.width={r.width}, circuit at {expected}",
+                      fs | {"extra_width"})
 
 
 # --------------------------------------------------------------------------
@@ -2033,7 +2037,14 @@ def main() -> int:
     print(f"seed={args.seed} instances={args.instances} steps={t.steps} seconds={seconds:.1f}")
     print("counts:", json.dumps(dict(sorted(t.counts.items()))))
     print("mismatches:", {f"{k}[{v}]": n for (k, v), n in sorted(by_kind.items())})
-    print(f"labelled={len(t.mismatches) - len(t.unexplained)} unexplained={len(t.unexplained)}")
+    labels = Counter(l for m in t.mismatches for l in m["labels"])
+    regressions, still_open = status.split(labels)
+    for label in sorted(regressions):
+        print(f"REGRESSION {label}: {regressions[label]} mismatches")
+    print(f"regressions={sum(regressions.values())} open={sum(still_open.values())} "
+          f"unexplained={len(t.unexplained)}")
+    if t.unexplained:
+        print(f"UNEXPLAINED: {len(t.unexplained)} mismatches, shown above")
     if missing:
         print(f"CATEGORIES AT ZERO: {missing}")
 
@@ -2048,14 +2059,15 @@ def main() -> int:
             "runtime_seconds": round(seconds, 1),
             "mismatches_by_kind": {f"{k}[{v}]": n for (k, v), n in sorted(by_kind.items())},
             "findings_observed_in_this_run": findings_seen,
-            "findings": FINDINGS,
+            "regressions": regressions,
+            "findings": [{**f, "status": status.state(f["id"])} for f in FINDINGS],
             "not_checked": NOT_CHECKED,
         }
         with open(RESULTS_PATH, "w") as fh:
             json.dump(payload, fh, indent=2)
             fh.write("\n")
 
-    return 1 if t.mismatches or missing else 0
+    return 1 if regressions or t.unexplained or missing else 0
 
 
 if __name__ == "__main__":

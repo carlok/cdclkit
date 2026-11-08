@@ -15,9 +15,9 @@ CLI), on tiny formulas, across the search knobs. Then:
 * the engines against each other: verdict, model, every exposed counter, and
   the proof stream.
 
-Known findings stay as mismatches and the run stays non-zero while they exist;
-`FINDINGS` only gives them a name. A mismatch without a known label prints as
-UNEXPLAINED.
+`FINDINGS` gives them a name, and campaign/status.py says what the name means: a
+fixed finding prints as REGRESSION and fails the run, an open one is reported, and a
+mismatch without a known label prints as UNEXPLAINED and fails.
 
     python -m campaign.gen_engines                 # the reported numbers
     python -m campaign.gen_engines --self-test     # the harness catches stubs
@@ -42,7 +42,7 @@ import dratify
 from dratify.cnf import CNF
 from dratify.lits import from_dimacs, to_dimacs
 
-from campaign import dpll, oracle
+from campaign import dpll, oracle, status
 from cdclkit import Config, MemoryProof, Solver, native, solve
 from cdclkit.pipeline import solve_adaptive
 from cdclkit.portfolio import _worker, default_configs, solve_portfolio
@@ -775,7 +775,7 @@ def check_worker(rep, clauses, nvars, truth, kw):
     plain = [list(c) for c in f.clauses]
     for engine in ("python", "native"):
         _, sat, model, steps, _ = _worker(
-            (0, f.nvars, plain, Config(**kw).as_dict(), False, engine, True))
+            (0, f.nvars, plain, Config(**kw).as_dict(), False, engine, True, None))
         rep.count(f"portfolio.worker_preprocess.{engine}")
         judge_answer(rep, f"portfolio.worker_preprocess.{engine}", clauses, nvars,
                      truth, sat, model)
@@ -1024,7 +1024,7 @@ def check_edges(rep):
             got = raises("empty", lambda: solve_portfolio(formula.copy(), jobs=2, configs=[]))
     finally:
         sys.setrecursionlimit(limit)
-    if got:
+    if got != "ValueError":  # there is nothing to run, and it has to say so
         rep.mismatch("engines-7", f"solve_portfolio(f, jobs=2, configs=[]) raises {got}", ())
     # the empty clause, through every preprocessing door
     for engine in ("python", "native"):
@@ -1242,7 +1242,8 @@ def run(seed, instances, big=True, eng=None, rep=None, cli_every=25, procs_every
     return rep
 
 
-def summarise(rep, out=sys.stdout):
+def summarise(rep, out=None):
+    out = sys.stdout if out is None else out  # at call time, so a redirect holds
     known = collections.Counter()
     unexplained = []
     for (label, what), n in sorted(rep.mismatches.items(), key=lambda kv: str(kv[0])):
@@ -1250,12 +1251,16 @@ def summarise(rep, out=sys.stdout):
             known[label] += n
         else:
             unexplained.append((what, n))
-    for label in sorted(known):
-        print(f"known {label} [{FINDINGS[label][0]}]: {known[label]} mismatches", file=out)
+    regressions, still_open = status.split(known)
+    for label in sorted(regressions):
+        print(f"REGRESSION {label} [{FINDINGS[label][0]}]: {regressions[label]} mismatches",
+              file=out)
+    for label in sorted(still_open):
+        print(f"open {label} [{FINDINGS[label][0]}]: {still_open[label]} mismatches", file=out)
     for what, n in unexplained:
         print(f"UNEXPLAINED ({n}): {what}", file=out)
         print(f"    e.g. {rep.examples[(None, what)][:400]}", file=out)
-    return known, unexplained
+    return regressions, still_open, unexplained
 
 
 # --------------------------------------------------------------------------
@@ -1383,7 +1388,7 @@ def main(argv=None):
     t0 = time.perf_counter()
     rep = run(args.seed, args.instances, big=not args.no_big)
     runtime = time.perf_counter() - t0
-    known, unexplained = summarise(rep)
+    regressions, still_open, unexplained = summarise(rep)
     missing = [k for k in REQUIRED if not rep.counts.get(k)]
     if args.instances < 100 or args.no_big:
         missing = []  # a short run makes no claim about reach
@@ -1400,13 +1405,15 @@ def main(argv=None):
             "instances": args.instances,
             "steps": rep.steps,
             "per_category_counts": dict(sorted(rep.counts.items())),
+            "regressions": regressions,
+            "mismatches_open": still_open,
             "mismatch_counts": {
                 f"{label or 'UNEXPLAINED'}: {what}": n
                 for (label, what), n in sorted(rep.mismatches.items(), key=str)},
             "runtime_seconds": round(runtime, 1),
             "findings": [
-                {"id": k, "severity": FINDINGS[k][0], "summary": FINDINGS[k][1]}
-                for k in sorted(known)],
+                {"id": k, "severity": v[0], "summary": v[1], "status": status.state(k)}
+                for k, v in sorted(FINDINGS.items())],
             "not_checked": NOT_CHECKED,
             "native_build": "cdclkit_native 0.1.7 embedding this checkout's dratify/rust "
                             "(0.1.10), not the crates.io release of the same version",
@@ -1415,7 +1422,7 @@ def main(argv=None):
         with open(os.path.join(HERE, "results", "engines.json"), "w", encoding="utf-8") as fh:
             json.dump(result, fh, indent=2)
             fh.write("\n")
-    if unexplained or known:
+    if unexplained or regressions:
         return 1
     return 2 if missing else 0
 

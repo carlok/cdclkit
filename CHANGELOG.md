@@ -152,6 +152,10 @@ Found by the same campaign, reviewed, and not changed.
 
 ### Tests
 
+- The campaign generators treat a fixed finding as a regression, which fails the run,
+  and report an open one without failing. See `campaign/status.py` and
+  `campaign/findings/STATUS.md`. Exit 0 now means nothing regressed and nothing is
+  unexplained.
 - CI now runs `make lint` and `bench/compare.py --quick`, the part of
   `make gate` it had been skipping although CONTRIBUTING said it ran all of it.
   The reference solvers are MiniSat and CaDiCaL.

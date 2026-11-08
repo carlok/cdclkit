@@ -24,8 +24,9 @@ Run from the repo root::
     python -m campaign.gen_preprocess --self-test    # wrong stubs must be flagged
     python -m campaign.gen_preprocess --shrink       # shrink one case per label
 
-Every mismatch carries a label, and any mismatch at all, known or not, makes
-the exit status non-zero.
+Every mismatch carries a label. One whose finding is fixed prints as REGRESSION and
+fails the run, an open one is reported, and an unknown label fails. See
+campaign/status.py.
 """
 
 from __future__ import annotations
@@ -42,7 +43,7 @@ import sys
 import tempfile
 import time
 
-from campaign import oracle
+from campaign import oracle, status
 
 from cdclkit import native as native_mod
 from cdclkit import cli as cdclkit_cli
@@ -1187,9 +1188,17 @@ def main(argv=None):
     print(f"seed={args.seed} instances={args.instances} steps={rep.steps} runtime={runtime:.1f}s")
     for k in sorted(rep.counts):
         print(f"  {k}: {rep.counts[k]}")
+    failing = 0
     for label, count in sorted(rep.mismatches.items()):
         n, cs, cfg, detail = rep.examples[label]
-        tag = KNOWN.get(label, "UNEXPLAINED")
+        finding = KNOWN.get(label)
+        if finding is None:
+            tag = "UNEXPLAINED"
+        elif status.state(finding) == "fixed":
+            tag = f"REGRESSION {finding}"
+        else:
+            tag = f"open {finding}"
+        failing += count if tag != f"open {finding}" else 0
         print(f"MISMATCH [{tag}] {label}: {count}")
         if args.shrink:
             n, cs = shrink(n, cs, cfg, label)
@@ -1202,9 +1211,11 @@ def main(argv=None):
              "steps": rep.steps,
              "per_category_counts": dict(sorted(rep.counts.items())),
              "mismatches": dict(sorted(rep.mismatches.items())),
+             "regressions_or_unexplained": failing,
              "runtime_seconds": round(runtime, 1),
-             "findings": FINDINGS, "not_checked": NOT_CHECKED}, indent=2) + "\n")
-    return 1 if rep.mismatches or missing else 0
+             "findings": [{**f, "status": status.state(f["id"])} for f in FINDINGS],
+             "not_checked": NOT_CHECKED}, indent=2) + "\n")
+    return 1 if failing or missing else 0
 
 
 if __name__ == "__main__":

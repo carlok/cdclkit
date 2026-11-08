@@ -4,7 +4,7 @@
     20261108
   ],
   "instances": 300,
-  "steps": 236709,
+  "steps": 236463,
   "per_category_counts": {
     "adaptive.always": 300,
     "adaptive.default": 300,
@@ -110,7 +110,6 @@
     "family.sparse": 29,
     "family.units": 28,
     "incremental.solves": 877,
-    "incremental.stale_model": 90,
     "instances": 300,
     "instances.sat": 163,
     "instances.unsat": 137,
@@ -202,11 +201,11 @@
     "replay.specified.fail.adaptive.probe3.native": 5,
     "replay.specified.fail.adaptive.probe3.python": 3,
     "replay.specified.ok": 6421,
-    "selfcheck.native": 1801,
-    "selfcheck.python": 1801,
+    "selfcheck.native": 1799,
+    "selfcheck.python": 1799,
     "solver.undeclared_vars": 600,
-    "steps.add": 62870,
-    "steps.del": 109483,
+    "steps.add": 62765,
+    "steps.del": 109342,
     "steps.del_absent.length-one": 304,
     "steps.del_absent.operational": 302,
     "steps.del_absent.specified": 304,
@@ -216,6 +215,12 @@
     "steps.rat_only.specified": 60,
     "steps.rejected.specified": 162,
     "steps.unsound.specified": 46
+  },
+  "regressions": {},
+  "mismatches_open": {
+    "engines-1": 237,
+    "engines-2": 767,
+    "engines-3": 748
   },
   "mismatch_counts": {
     "engines-1: adaptive.always.native: proof fails under specified only": 75,
@@ -254,75 +259,63 @@
     "engines-3: adaptive.probe1: add_clause strengthening logged by Python only": 43,
     "engines-3: adaptive.probe3: add_clause strengthening logged by Python only": 43,
     "engines-3: raw: add_clause strengthening logged by Python only": 73,
-    "engines-3: solver: add_clause strengthening logged by Python only": 152,
-    "engines-4: incremental: model after a failed re-solve": 90,
-    "engines-5: cli --adaptive --preprocess --check-model: MODEL CHECK FAILED on the unreconstructed model": 1,
-    "engines-5: cli --adaptive --preprocess --self-check: printed a model that falsifies the input": 1,
-    "engines-5: cli --adaptive --preprocess: printed a model that falsifies the input": 2,
-    "engines-6: cli --conflicts 0 --adaptive -j 2: exit 20, wanted 0 (unknown)": 1,
-    "engines-6: cli --conflicts 0 --adaptive: exit 20, wanted 0 (unknown)": 1,
-    "engines-6: cli --conflicts 0 -j 2: exit 20, wanted 0 (unknown)": 1,
-    "engines-7: solve_portfolio(f) raises TypeError": 1,
-    "engines-7: solve_portfolio(f, jobs=2, configs=[]) raises RecursionError": 1,
-    "engines-8: always_preprocess on the empty clause, native: raises PanicException": 1,
-    "engines-8: always_preprocess on the empty clause, python: raises ValueError": 1,
-    "engines-8: cli --preprocess -j 2 on (1)(-1), native: exit 1, wanted 20": 1,
-    "engines-8: cli --preprocess on the empty clause: exit 1, wanted 20": 1,
-    "engines-8: cli -j 2 on the empty clause: exit 1, wanted 20": 1,
-    "engines-8: solve_portfolio(jobs=2) on the empty clause: raises PanicException": 1,
-    "engines-9: Config({'ccmin': 'bogus'}): python None, native ValueError": 1,
-    "engines-9: Config({'glue_keep': -1}): python None, native OverflowError": 1,
-    "engines-9: Config({'restart': 'bogus'}): python None, native ValueError": 1,
-    "engines-9: Config({'rnd_seed': -1}): python None, native OverflowError": 1,
-    "engines-9: Config({'rnd_seed': 4294967297}): python None, native OverflowError": 1,
-    "engines-9: engine='quantum': solve_adaptive None, solve_portfolio ValueError": 1
+    "engines-3: solver: add_clause strengthening logged by Python only": 152
   },
-  "runtime_seconds": 150.7,
+  "runtime_seconds": 68.9,
   "findings": [
     {
       "id": "engines-1",
       "severity": "Note",
-      "summary": "preprocessed proofs delete unit clauses and then rely on them: they hold under `operational` and `length-one`, not under `specified` (both engines)"
+      "summary": "preprocessed proofs delete unit clauses and then rely on them: they hold under `operational` and `length-one`, not under `specified` (both engines)",
+      "status": "open"
     },
     {
       "id": "engines-2",
       "severity": "Bug",
-      "summary": "the preprocessors are not bit-exact: on the preprocessing paths of solve_adaptive the engines disagree on model, clauses_after, conflicts and proof, against AGENTS.md"
+      "summary": "the preprocessors are not bit-exact: on the preprocessing paths of solve_adaptive the engines disagree on model, clauses_after, conflicts and proof, against AGENTS.md",
+      "status": "open"
     },
     {
       "id": "engines-3",
       "severity": "Bug",
-      "summary": "proof streams differ on the search-only paths: native add_clause logs no strengthening, the Python pipeline keeps an abandoned probe's steps and a SAT run's steps, the native one drops them"
+      "summary": "proof streams differ on the search-only paths: native add_clause logs no strengthening, the Python pipeline keeps an abandoned probe's steps and a SAT run's steps, the native one drops them",
+      "status": "open"
     },
     {
       "id": "engines-4",
       "severity": "Bug",
-      "summary": "after a failed re-solve the native Solver still reports the previous model; Python clears it"
+      "summary": "after a failed re-solve the native Solver still reports the previous model; Python clears it",
+      "status": "fixed"
     },
     {
       "id": "engines-5",
       "severity": "Critical",
-      "summary": "`cdclkit solve --preprocess --adaptive` prints the reduced formula's model, unreconstructed: `s SATISFIABLE` with a model that falsifies the input"
+      "summary": "`cdclkit solve --preprocess --adaptive` prints the reduced formula's model, unreconstructed: `s SATISFIABLE` with a model that falsifies the input",
+      "status": "fixed"
     },
     {
       "id": "engines-6",
       "severity": "Bug",
-      "summary": "`solve --adaptive` and `-j N` ignore `--conflicts`, which the 0.1.3 changelog lists as fixed: a run with a budget of 0 decides instead of exiting 0 (unknown)"
+      "summary": "`solve --adaptive` and `-j N` ignore `--conflicts`, which the 0.1.3 changelog lists as fixed: a run with a budget of 0 decides instead of exiting 0 (unknown)",
+      "status": "fixed"
     },
     {
       "id": "engines-7",
       "severity": "Bug",
-      "summary": "solve_portfolio crashes on its defaults: jobs=None raises TypeError, configs=[] recurses without end"
+      "summary": "solve_portfolio crashes on its defaults: jobs=None raises TypeError, configs=[] recurses without end",
+      "status": "fixed"
     },
     {
       "id": "engines-8",
       "severity": "Bug",
-      "summary": "both preprocessors crash on a formula holding the empty clause, Python with ValueError and native with a Rust panic that `except Exception` cannot catch, so `solve --preprocess -j 2` dies on any formula --preprocess refutes, instead of exiting 20"
+      "summary": "both preprocessors crash on a formula holding the empty clause, Python with ValueError and native with a Rust panic that `except Exception` cannot catch, so `solve --preprocess -j 2` dies on any formula --preprocess refutes, instead of exiting 20",
+      "status": "fixed"
     },
     {
       "id": "engines-9",
       "severity": "Bug",
-      "summary": "a Config one engine accepts the other refuses: rnd_seed outside u32 and glue_keep < 0 raise OverflowError on native, an unknown restart or ccmin runs silently on Python; solve_adaptive also runs an unknown engine name as Python"
+      "summary": "a Config one engine accepts the other refuses: rnd_seed outside u32 and glue_keep < 0 raise OverflowError on native, an unknown restart or ccmin runs silently on Python; solve_adaptive also runs an unknown engine name as Python",
+      "status": "fixed"
     }
   ],
   "not_checked": [

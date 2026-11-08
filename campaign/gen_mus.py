@@ -35,7 +35,7 @@ import sys
 import tempfile
 import time
 
-from campaign import dpll, oracle
+from campaign import dpll, oracle, status
 
 from cdclkit import cli as cdclkit_cli
 from cdclkit.mus import MUSExtractor, mus as real_mus, shrink_core as real_shrink_core
@@ -515,9 +515,11 @@ class Run:
                 self.counts["verify_repeated_index"] += 1
             if is_mus:
                 self.counts["verify_true"] += 1
-                if spent != len(sub) + 1:
+                # a subset is a set, so a repeat costs nothing
+                if spent != len(set(sub)) + 1:
                     self.bad("verify_cost", raw,
-                             f"verify({sub}) spent {spent} calls, documented {len(sub) + 1}")
+                             f"verify({sub}) spent {spent} calls, "
+                             f"documented {len(set(sub)) + 1}")
             elif judge.sat(scope):
                 self.counts["verify_satisfiable"] += 1
                 if "satisfiable" not in msg:
@@ -1034,8 +1036,6 @@ OBSERVATIONS = [
     "Indices count CNF.clauses, so a tautology in the input, which CNF.add documents "
     "dropping, shifts them against the file's own clause numbering. The CLI prints each "
     "clause's body, and the harness checks the body against the index.",
-    "verify() with a repeated index treats the subset as a set, and its message then "
-    "counts the repeats ('all 3 clauses' for two distinct clauses).",
 ]
 
 NOT_CHECKED = [
@@ -1075,6 +1075,10 @@ def main(argv=None):
         print(f"  {k:44s} {run.counts[k]}")
     zeros = zero_categories(run.counts)
     print(f"mismatches: {run.total_mismatches}  by finding: {dict(run.by_label)}")
+    labels = {k: v for k, v in run.by_label.items() if k != "UNEXPLAINED"}
+    regressions, still_open = status.split(labels)
+    for label in sorted(regressions):
+        print(f"REGRESSION {label}: {regressions[label]} mismatches")
     for k, v in run.by_check.most_common():
         print(f"  {k}: {v}")
     for m in run.mismatches[:8]:
@@ -1095,12 +1099,13 @@ def main(argv=None):
                 "cpu_seconds": round(cpu, 1),
                 "mismatches": run.total_mismatches,
                 "mismatches_by_finding": dict(run.by_label),
-                "findings": FINDINGS,
+                "regressions": regressions,
+                "findings": [{**f, "status": status.state(f["id"])} for f in FINDINGS],
                 "observations": OBSERVATIONS,
                 "not_checked": NOT_CHECKED,
             }, fh, indent=2)
             fh.write("\n")
-    return 1 if run.total_mismatches or zeros else 0
+    return 1 if regressions or run.by_label["UNEXPLAINED"] or zeros else 0
 
 
 if __name__ == "__main__":
