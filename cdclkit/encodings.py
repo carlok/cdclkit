@@ -809,6 +809,8 @@ class Optimiser:
     def solve_with_bound(self, bound: int | None, permanent: bool = False):
         """Solve demanding ``count <= bound``.  Returns a model or None."""
         assumptions: list[int] = []
+        if bound is not None and bound < 0 and self.totalizer is None:
+            return None  # nothing to count, so a count of 0, which is not <= -1
         if bound is not None and self.totalizer is not None:
             lit = self.totalizer.at_most_lit(bound)
             if lit is not None:

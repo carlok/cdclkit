@@ -130,6 +130,8 @@ that covers and what it does not.
   so `a + 1` was "equivalent" to `a`, with the proof replayed. **Such a width now
   raises `UnsupportedConstruct`.** An unknown `engine` name, which used to run on
   Python, raises `ValueError`.
+- `Optimiser` with no soft literals ignored a negative bound, and returned a model
+  for `count <= -1`. It now returns None, as it does with soft literals.
 
 ### Tests
 
