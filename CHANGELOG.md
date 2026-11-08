@@ -41,6 +41,12 @@ that covers and what it does not.
   different from `x` and blamed on an overflow that never happens. They now
   return an operand, as Python's do. Conditions were always right, and comparisons
   as values still compile to 0 and 1, because `True == 1`.
+- **`pyeq` dropped bare expression statements.** Any that was not directly a call
+  was taken for a no-op, so `(x := x + 1)` was proved equal to a function that
+  returns `x`, and `yield x` and `x % 0` proved a function that never returns an
+  integer. The subset is now an allowlist of AST nodes checked over the whole
+  body, including code that never runs. **Now refused:** every bare expression
+  statement but a constant (a docstring, `...`).
 
 ### Tests
 
