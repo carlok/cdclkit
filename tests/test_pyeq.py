@@ -506,6 +506,48 @@ class TestRange(unittest.TestCase):
             self.assertIs(equivalent(mod.f, mod.plus_one, widths={"x": 3}).proved, True)
 
 
+class TestWidthClaim(unittest.TestCase):
+    """`r.width` came from every key in `widths` and the circuit's width from the
+    parameters, so the report could name a width nothing was compiled at."""
+
+    def test_a_key_naming_no_parameter_is_refused(self):
+        """`a * 16` is 0 at 4 bits and not at 8, and this said "equivalent at 8"."""
+        def f(a): return a * 16
+        def g(a): return 0
+        with self.assertRaises(UnsupportedConstruct) as cm:
+            equivalent(f, g, {"a": 4, "unused": 8})
+        self.assertIn("unused", str(cm.exception))
+
+    def test_a_function_with_no_parameters_reports_its_width(self):
+        """Compiled at 8, where 300 is 44, and reported as "equivalent at 0 bits"."""
+        def c(): return 300
+        def d(): return 44
+        r = equivalent(c, d, {})
+        self.assertIs(r.proved, True)
+        self.assertEqual(r.width, 8)
+        self.assertIn("at 8 bits", r.report())
+
+    def test_no_parameters_and_a_key_is_refused(self):
+        def c(): return 300
+        def d(): return 44
+        with self.assertRaises(UnsupportedConstruct):
+            equivalent(c, d, {"z": 16})
+
+    def test_the_claim_holds_at_the_width_it_names(self):
+        def f(a, b): return a * 16 + b
+        def g(a, b): return b
+        r = equivalent(f, g, {"a": 2, "b": 8})
+        self.assertEqual(r.width, 8)
+        self.assertIs(r.proved, False, "a = 1 gives 16 at 8 bits")
+
+    def test_mixed_widths_report_the_widest(self):
+        def f(a, b): return a + b
+        def g(a, b): return b + a
+        r = equivalent(f, g, {"a": 3, "b": 5})
+        self.assertIs(r.proved, True)
+        self.assertEqual(r.width, 5)
+
+
 class TestRejection(unittest.TestCase):
     def _reject(self, fn, needle):
         with self.assertRaises(UnsupportedConstruct) as cm:

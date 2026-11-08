@@ -93,6 +93,12 @@ that covers and what it does not.
   let 1 through and `x.le(1)` lost it, and on `[1, 1, 2]`, `x != 1` still allowed 1.
   A domain is now sorted and deduplicated, so `x.domain` may differ from what was
   passed in.
+- **`pyeq` could report a width the circuit did not have.** The report took the
+  largest value in `widths` and the circuit the largest among the parameters, so
+  `{"a": 4, "unused": 8}` said "equivalent at 8 bits" of functions that differ at
+  8, and a function with no parameters, compiled at 8, said "at 0 bits".
+  `result.width` is now the circuit's. **A `widths` key naming no parameter now
+  raises `UnsupportedConstruct`.**
 
 ### Tests
 
