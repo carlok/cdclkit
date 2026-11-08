@@ -617,3 +617,105 @@ class TestModellingOperators(unittest.TestCase):
         self.assertEqual(sols, {4, 5, 6})
         # a bound outside the domain is a constant, not an error
         self.assertIsInstance(x.ge(99), int)
+
+
+class TestModelSolvesWhatItHolds(unittest.TestCase):
+    """`Model.solve` reused its solver unless a *variable* had been added, so
+    `add(x != first)` after a solve returned `first` again, and `solutions()`
+    left its blocking clauses behind for the next `solve()` to answer from.
+
+    Each answer is judged against the model's own CNF, not against the solver
+    that produced it.
+    """
+
+    def test_a_constraint_without_a_new_variable_is_seen(self):
+        from cdclkit.model import Model
+
+        m = Model()
+        x = m.int_var(range(3), "x")
+        first = m.solve()[x]
+        m.add(x != first)
+        second = m.solve()
+        self.assertNotEqual(second[x], first)
+        self.assertTrue(m.cnf.is_satisfied_by(second.bits))
+
+    def test_a_contradiction_after_a_solve_is_unsat(self):
+        from cdclkit.model import Model
+
+        m = Model()
+        a = m.bool_var("a")
+        self.assertIsNotNone(m.solve())
+        m.add(a)
+        m.add(~a)
+        self.assertIsNone(m.solve())
+
+    def test_equality_after_a_solve_is_honoured(self):
+        from cdclkit.model import Model
+
+        m = Model()
+        x = m.int_var(range(1, 5), "x")
+        m.solve()
+        m.add(x == 3)
+        self.assertEqual(m.solve()[x], 3)
+
+    def test_a_new_proof_gets_a_proof(self):
+        """An UNSAT answer from a solver built without the sink logged nothing,
+        so the sink held no refutation of a formula that has one."""
+        from dratify.proof import MemoryProof, check_proof
+
+        from cdclkit.model import Model
+
+        m = Model()
+        p, q = m.bool_var("p"), m.bool_var("q")
+        for clause in ([p, q], [~p, q], [p, ~q], [~p, ~q]):
+            m.add_clause(clause)
+        self.assertIsNone(m.solve())
+        proof = MemoryProof()
+        self.assertIsNone(m.solve(proof=proof))
+        self.assertTrue(check_proof(m.cnf, proof.steps).ok)
+
+    def test_an_unchanged_model_keeps_its_solver(self):
+        """Learnt clauses survive for as long as they are still about this
+        problem: rebuilding every time would be correct and wasteful."""
+        from cdclkit.model import Model
+
+        m = Model()
+        m.bool_var("a")
+        m.solve()
+        s = m.solver
+        m.solve()
+        self.assertIs(m.solver, s)
+
+    def test_enumeration_does_not_change_the_problem(self):
+        from cdclkit.model import Model
+
+        m = Model()
+        a = m.bool_var("a")
+        self.assertEqual(len(list(m.solutions(project=[a]))), 2)
+        self.assertIsNotNone(m.solve())
+
+    def test_a_partly_consumed_enumeration_excludes_nothing(self):
+        from cdclkit.model import Model
+
+        m = Model()
+        a = m.bool_var("a")
+        it = m.solutions(project=[a])
+        seen = next(it)[a]
+        next(it)
+        m.add(a if seen else ~a)
+        self.assertEqual(m.solve()[a], seen)
+        self.assertEqual(len(list(m.solutions(project=[a]))), 1)
+
+    def test_a_contradiction_replays_after_a_solve(self):
+        from dratify.proof import MemoryProof, check_proof
+
+        from cdclkit.model import Model
+
+        m = Model()
+        a = m.bool_var("a")
+        m.solve()
+        m.add(a)
+        m.add(~a)
+        proof = MemoryProof()
+        self.assertIsNone(m.solve(proof=proof))
+        self.assertTrue(check_proof(m.cnf, proof.steps).ok)

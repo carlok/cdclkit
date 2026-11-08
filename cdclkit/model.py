@@ -200,6 +200,8 @@ class Model:
         self.enc = Encoder(self.cnf)
         self.config = config
         self.solver: Solver | None = None
+        #: what `self.solver` was built from: variables, clauses, proof sink
+        self._built: tuple = (0, 0, None)
         self._names: dict[int, str] = {}
         #: Overrides the `method` argument of every cardinality constraint.
         #: Set by :func:`differential_solve` to build the same problem twice
@@ -310,21 +312,49 @@ class Model:
 
     # -- solving ------------------------------------------------------------
 
-    def build_solver(self, proof=None) -> Solver:
+    def _new_solver(self, proof=None) -> Solver:
         s = Solver(self.cnf.nvars, proof=proof, config=self.config)
         s.add_cnf(self.cnf)
-        self.solver = s
         return s
 
+    def build_solver(self, proof=None) -> Solver:
+        s = self._new_solver(proof)
+        self.solver = s
+        self._built = (self.cnf.nvars, self.cnf.nclauses, proof)
+        return s
+
+    def _is_current(self, proof) -> bool:
+        """Does the stored solver hold exactly this CNF, logging where asked?
+
+        Counting variables alone missed every constraint that adds none: a unit
+        on an existing literal, `add(x == 3)`, any pairwise encoding. The answer
+        then came from the old problem. A sink the solver was not built with is
+        just as stale, because nothing would ever be written to it. Passing no
+        proof on a later call asks for nothing, so a solver already logging can
+        stay.
+        """
+        if self.solver is None:
+            return False
+        nvars, nclauses, built_with = self._built
+        if (nvars, nclauses) != (self.cnf.nvars, self.cnf.nclauses):
+            return False
+        return proof is None or proof is built_with
+
     def solve(self, proof=None, assumptions: Sequence[int] = ()) -> Solution | None:
-        s = self.solver if self.solver is not None else self.build_solver(proof)
-        if s.nvars < self.cnf.nvars:  # new constraints since the last build
-            s = self.build_solver(proof)
+        # A rebuild drops the learnt clauses, which is the cost of not having
+        # to prove that every path adding a clause also reached this solver.
+        s = self.solver if self._is_current(proof) else self.build_solver(proof)
         return Solution(s.model) if s.solve(assumptions) else None
 
     def solutions(self, project: Sequence[IntVar | BoolVar] | None = None, limit: int = 0):
-        """Iterate over distinct solutions, optionally projected onto variables."""
-        s = self.build_solver()
+        """Iterate over distinct solutions, optionally projected onto variables.
+
+        Enumeration adds a blocking clause per solution, so it runs on a solver
+        of its own. Those clauses belong to the enumeration, not to the problem,
+        and on `self.solver` they made a later `solve()` answer for what was left
+        over: None for a model with no clauses at all.
+        """
+        s = self._new_solver()
         proj = None
         if project is not None:
             proj = []
