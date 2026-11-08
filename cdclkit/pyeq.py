@@ -591,6 +591,12 @@ def _parameter_names(fn: Callable) -> tuple[str, ...]:
 
 
 def _function_ast(fn: Callable) -> ast.FunctionDef:
+    # `inspect.getsource` follows `__wrapped__`, so a wrapper would be replaced
+    # by what it wraps, and the proof would be about a different callable.
+    if hasattr(fn, "__wrapped__"):
+        raise UnsupportedConstruct(
+            f"{getattr(fn, '__name__', fn)!r} wraps another function; only the "
+            f"inner source could be read, so the wrapper would go unchecked")
     try:
         src = textwrap.dedent(inspect.getsource(fn))
     except (OSError, TypeError) as e:
@@ -600,6 +606,8 @@ def _function_ast(fn: Callable) -> ast.FunctionDef:
     tree = ast.parse(src)
     for node in tree.body:
         if isinstance(node, ast.FunctionDef):
+            if node.decorator_list:
+                raise _unsupported(node.decorator_list[0].lineno, "a decorator")
             return node
     raise UnsupportedConstruct("no function definition found in the source")
 
