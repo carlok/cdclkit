@@ -418,6 +418,7 @@ class TestModelClearedOnRefutation(unittest.TestCase):
         self.assertEqual(self._refuted(native.require().Solver), [])
 
 
+@requires_native
 class TestTier2Faithfulness(unittest.TestCase):
     """Bit-exact agreement with the Python solver."""
 
