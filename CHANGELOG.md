@@ -116,6 +116,10 @@ that covers and what it does not.
   whole and each `-j` worker on its own. `--conflicts` with `-j` runs on processes
   rather than threads, because a native thread cannot be stopped on a budget. A
   negative budget is now an error.
+- `solve_portfolio(f)` raised `TypeError` on its own default `jobs=None`, and
+  `configs=[]` ended in `RecursionError` after spawning at every level. The first
+  now uses the core count, as the module docstring says, and the second raises
+  `ValueError`.
 
 ### Tests
 
