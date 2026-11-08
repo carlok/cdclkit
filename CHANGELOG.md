@@ -18,6 +18,15 @@ that covers and what it does not.
 - `--self-check` now evaluates a model against the input before reporting SAT,
   as `--check-model` does. It only ever looked at refutations, so it could not
   have caught the above.
+- **`Model.solve` answered for a problem the model no longer held.** It rebuilt
+  its solver only when a *variable* had been added, so a constraint that adds
+  none was ignored: `add(x != first)` could return `first`, `add(x == 3)` could
+  return `x = 4`, and `add(a)`, `add(~a)` could return a solution. It now
+  compares clauses and the proof sink as well. A proof passed to a later
+  `solve()` also went nowhere, and now receives the refutation.
+- **`Model.solutions` poisoned later solves.** Its blocking clauses stayed on
+  `self.solver`, so `solve()` after an enumeration returned None on a
+  satisfiable model. Enumeration now has a solver of its own.
 
 ### Tests
 
