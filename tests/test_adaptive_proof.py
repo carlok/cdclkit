@@ -201,5 +201,72 @@ class TestAdaptiveCLI(unittest.TestCase):
         self.assertIn("unknown CDCLKIT_ENGINE", r.stderr)
 
 
+class TestPreprocessThenSearch(unittest.TestCase):
+    """`--preprocess` reduces the formula before any later route sees it, so
+    every route has to reconstruct.
+
+    `--preprocess --adaptive` returned before the only `pre.reconstruct` and
+    printed `v -1` for the formula `(x1)`, exit 10. The adaptive pipeline's own
+    reconstruction cannot help: it knows nothing about an outer preprocessor.
+    """
+
+    FORMULAS = [
+        ("p cnf 1 1\n1 0\n", [[1]]),
+        ("p cnf 3 3\n1 2 0\n-1 3 0\n-2 -3 0\n", [[1, 2], [-1, 3], [-2, -3]]),
+    ]
+    ROUTES = [
+        ("--preprocess",),
+        ("--preprocess", "--adaptive"),
+        ("--preprocess", "--adaptive", "-j", "2"),
+        ("--preprocess", "--adaptive", "--self-check"),
+        ("--preprocess", "--adaptive", "--check-model"),
+        ("--preprocess", "--check-model"),
+    ]
+
+    _cli = TestAdaptiveCLI._cli
+
+    def _printed_model(self, stdout):
+        return {int(t) for line in stdout.splitlines() if line.startswith("v ")
+                for t in line[2:].split()} - {0}
+
+    def test_every_route_prints_a_model_of_the_input(self):
+        engines = ["python"] + (["native"] if native.available() else [])
+        for text, clauses in self.FORMULAS:
+            for route in self.ROUTES:
+                for engine in engines:
+                    with self.subTest(text=text, route=route, engine=engine), \
+                            tempfile.TemporaryDirectory() as d:
+                        cnf = pathlib.Path(d) / "f.cnf"
+                        cnf.write_text(text)
+                        r = self._cli("solve", str(cnf), *route, engine=engine)
+                        self.assertEqual(r.returncode, 10, r.stdout + r.stderr)
+                        model = self._printed_model(r.stdout)
+                        for c in clauses:
+                            self.assertTrue(set(c) & model, f"{c} falsified: {r.stdout}")
+
+    def test_self_check_refuses_a_wrong_model(self):
+        """A SAT answer is the one a self-check can verify for almost nothing:
+        evaluate it. --self-check used to look only at refutations."""
+        import contextlib
+        import io
+        from unittest import mock
+
+        from cdclkit import cli
+        from cdclkit.pipeline import PipelineResult
+
+        wrong = PipelineResult()
+        wrong.sat, wrong.model = True, [False]
+        with tempfile.TemporaryDirectory() as d:
+            cnf = pathlib.Path(d) / "f.cnf"
+            cnf.write_text("p cnf 1 1\n1 0\n")
+            out = io.StringIO()
+            with mock.patch("cdclkit.pipeline.solve_adaptive", return_value=wrong), \
+                    contextlib.redirect_stdout(out):
+                code = cli.main(["solve", str(cnf), "--adaptive", "--self-check"])
+        self.assertEqual(code, 1, out.getvalue())
+        self.assertIn("MODEL CHECK FAILED", out.getvalue())
+        self.assertNotIn("s SATISFIABLE", out.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -148,16 +148,7 @@ def cmd_solve(args) -> int:
         print(pr.report())
         print(f"c {pr.conflicts} conflicts in {pr.seconds:.3f}s")
         if pr.sat:
-            if args.check_model:
-                base = original if original is not None else f
-                if base.falsified_clauses(pr.model):
-                    print("c MODEL CHECK FAILED")
-                    return EXIT_ERROR
-                print("c model verified against the input formula")
-            print("s SATISFIABLE")
-            if not args.no_model:
-                _emit_model(pr.model)
-            return EXIT_SAT
+            return _finish_sat(args, pr.model, pre, original)
         print("s UNSATISFIABLE")
         # The proof covers preprocessing *and* the search, so it is checked
         # against the original formula, not the reduced one.
@@ -197,23 +188,37 @@ def cmd_solve(args) -> int:
         print("s UNKNOWN")
         return EXIT_UNKNOWN
     if result:
-        model = s.model
-        if pre is not None:
-            model = pre.reconstruct(model)
-        if args.check_model:
-            base = original if original is not None else f
-            bad = base.falsified_clauses(model)
-            if bad:
-                print(f"c MODEL CHECK FAILED: {len(bad)} clauses unsatisfied")
-                return EXIT_ERROR
-            print("c model verified against the input formula")
-        print("s SATISFIABLE")
-        if not args.no_model:
-            _emit_model(model)
-        return EXIT_SAT
+        return _finish_sat(args, s.model, pre, original)
 
     print("s UNSATISFIABLE")
     return _finish_unsat(args, original, mem_proof, proof_sink)
+
+
+def _finish_sat(args, model, pre, original) -> int:
+    """Reconstruct, check if asked, then print the model.
+
+    Shared by every route, for the reason `_finish_unsat` is. The adaptive
+    branch had its own copy that returned before the only `pre.reconstruct`, so
+    `--preprocess --adaptive` printed a model of the reduced formula as the
+    answer: `v -1` for `(x1)`, exit 10.
+
+    `--self-check` checks a model as well as a proof. Evaluating the clauses
+    costs one pass over the input, far less than the replay an UNSAT answer
+    gets, and a self-check that only looks at one of the two verdicts leaves
+    the other on trust.
+    """
+    if pre is not None:
+        model = pre.reconstruct(model)
+    if original is not None:  # kept for exactly --check-model and --self-check
+        bad = original.falsified_clauses(model)
+        if bad:
+            print(f"c MODEL CHECK FAILED: {len(bad)} clauses unsatisfied")
+            return EXIT_ERROR
+        print("c model verified against the input formula")
+    print("s SATISFIABLE")
+    if not args.no_model:
+        _emit_model(model)
+    return EXIT_SAT
 
 
 def _finish_unsat(args, formula, mem_proof, proof_sink) -> int:
@@ -456,7 +461,9 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("file")
     s.add_argument("--proof", help="write a DRAT proof here (UNSAT only)")
     s.add_argument("--self-check", action="store_true",
-                   help="keep the proof in memory and verify it before reporting UNSAT")
+                   help="keep the proof in memory and verify it before reporting "
+                        "UNSAT; verify the model against the input before "
+                        "reporting SAT")
     s.add_argument("--check-model", action="store_true",
                    help="verify the model against the input before reporting SAT")
     s.add_argument("--preprocess", action="store_true")
