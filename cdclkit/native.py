@@ -16,9 +16,11 @@ The contract, in both directions:
 * **If it is present, the plain solver still does not use it.** `Solver`,
   `solve()` and `cdclkit solve` are Python. `solve_adaptive()`,
   `solve_portfolio()` and `cdclkit solve --adaptive` / `-j N` use it when it is
-  installed. That is safe only because the two engines are bit-exact and tested
-  to stay that way. A silent switch between two implementations is how
-  differential bugs hide, so the CLI prints which engine ran and
+  installed. That is safe only because the two searches are bit-exact and tested
+  to stay that way, and the two preprocessors, which are not (native has no
+  blocked clause elimination), agree on every verdict. A silent switch between
+  two implementations is how differential bugs hide, so the CLI prints which
+  engine ran and
   `CDCLKIT_ENGINE` (read by `engine_requested()`) overrides the choice.
 
 Building it::

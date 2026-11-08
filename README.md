@@ -110,8 +110,8 @@ checking a refactored Python function against the original.
 | `pyeq` | **experimental** — bounded equivalence of two Python integer functions |
 
 An optional Rust engine ([`cdclkit-native`](https://pypi.org/project/cdclkit-native/))
-is **bit-exact** with the Python one — identical conflicts, decisions and
-propagations on every instance — and about **20x faster**: the geometric mean
+runs a search **bit-exact** with the Python one — identical conflicts, decisions
+and propagations on every instance — and about **20x faster**: the geometric mean
 of per-instance ratios over the 17 benchmark instances is 20.1x, ranging from
 11x to 51x. That comes from two checkpoints recorded 34 seconds apart at the
 same commit, one sample per instance — good enough for the mean, not for any
@@ -169,6 +169,15 @@ otherwise.
   (0 of 105). See `experiments/pyeq-llm-refactor/report.md` for the full
   negative result.
 - Every performance figure comes from one machine.
+- Bit-exactness stops at the search. The two preprocessors differ: native has no
+  blocked clause elimination and visits clauses in another order. So once
+  preprocessing runs, on `--adaptive` past its probe for example, an engine can
+  give a different model, conflict count and proof. No verdict has differed, and
+  every model satisfied its formula. Proof streams differ on search-only routes
+  too, and each one replays.
+- Preprocessed proofs delete a unit clause and then rely on it. They check under
+  the rule dratify documents, which ignores such deletions, and which drat-trim
+  applies by default. A checker honouring every deletion to the letter rejects them.
 
 ## Documentation
 

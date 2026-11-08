@@ -13,10 +13,11 @@ own gives you a compiled module with nothing to drive it.
 ## What it is
 
 `cdclkit` is a CDCL SAT solver written in readable Python. This package is the
-same solver ported to Rust, and it is **bit-exact** with the Python one:
+same solver ported to Rust, and its search is **bit-exact** with the Python one:
 identical conflicts, decisions and propagations on every instance. It is not a
 different solver that happens to be faster — it is the same search, and a test
-suite compares the two counter by counter to keep it that way.
+suite compares the two counter by counter to keep it that way. The preprocessor
+is a separate port and is not bit-exact: it has no blocked clause elimination.
 
 Roughly 18x faster than the pure-Python engine.
 

@@ -53,8 +53,11 @@ Proof logging
 -------------
 Every clause added is emitted before it is used, every clause removed is
 emitted as a deletion afterwards, in that order.  BVE resolvents are RUP (unit
-propagation on the two parents derives them), so a plain DRAT checker verifies
-the entire preprocessing phase with no special support.
+propagation on the two parents derives them), so a DRAT checker verifies the
+entire preprocessing phase with no special support, as long as it ignores the
+deletion of a unit clause, which dratify does and drat-trim does by default.
+`propagate` logs a unit's own deletion before the steps relying on it, so a checker
+honouring every deletion to the letter rejects those proofs.
 """
 
 from __future__ import annotations

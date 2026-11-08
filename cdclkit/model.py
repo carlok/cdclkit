@@ -401,6 +401,10 @@ class Model:
     def solutions(self, project: Sequence[IntVar | BoolVar] | None = None, limit: int = 0):
         """Iterate over distinct solutions, optionally projected onto variables.
 
+        Without `project`, distinct means over every variable, the encodings'
+        auxiliaries included, so one assignment to your variables can come back
+        several times. Project onto them to get each once.
+
         Enumeration adds a blocking clause per solution, so it runs on a solver
         of its own. Those clauses belong to the enumeration, not to the problem,
         and on `self.solver` they made a later `solve()` answer for what was left
@@ -466,6 +470,11 @@ def differential_solve(build, methods=("pairwise", "commander"),
     of that touches the encoder. Encoding a cardinality constraint two ways and
     requiring the same answer is the cheapest available check on the one
     remaining unverified translation.
+
+    It only varies what `encoding_method` reaches: `at_most_one`, `exactly_one` and
+    the `*_k` constraints. A model built only from `all_different`, `sum_leq`,
+    `sum_geq` or `parity` compiles to the same CNF twice, so agreement there says
+    nothing.
 
     Returns the :class:`Solution` (or None for unsatisfiable) from the first
     method. Raises :class:`EncodingDisagreement` when the methods disagree.

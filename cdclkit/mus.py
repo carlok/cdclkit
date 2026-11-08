@@ -23,8 +23,8 @@ it is an unsatisfiable subset, just not necessarily a minimal one.
 Two algorithms:
 
 **Deletion-based.** Try each candidate clause in turn; if the rest are still
-unsatisfiable, drop it permanently. Exactly `|M|` solver calls after the
-initial core, each one UNSAT-or-SAT, and the result is minimal by construction.
+unsatisfiable, drop it permanently. One solver call per clause of the initial
+core, each one UNSAT-or-SAT, and the result is minimal by construction.
 Simple and hard to get wrong.
 
 **QuickXplain** (Junker 2004). Divide and conquer: split the candidate set,
