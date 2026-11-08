@@ -567,6 +567,8 @@ def solve_portfolio(
         # the caller actually passed in.
         preprocess_workers = 0
     cfgs = list(configs) if configs is not None else default_configs(jobs)
+    for cfg in cfgs:
+        cfg.validate()
     jobs = min(jobs, len(cfgs))
 
     result = PortfolioResult()

@@ -120,6 +120,12 @@ that covers and what it does not.
   `configs=[]` ended in `RecursionError` after spawning at every level. The first
   now uses the core count, as the module docstring says, and the second raises
   `ValueError`.
+- **The engines accepted different configurations.** Python took `rnd_seed=2**32 + 1`,
+  a negative `glue_keep` and `restart="bogus"`, which silently meant Glucose, and
+  native raised on all three, so `--seed 4294967297 --adaptive` worked or failed by
+  engine. **`Config` now raises `ValueError` on anything either engine would refuse,**
+  including a seed outside u32 and `walk_interval=0`. `solve_adaptive` also refuses an
+  unknown engine name, which used to run as Python.
 
 ### Tests
 

@@ -163,6 +163,15 @@ class Config:
         "verbosity",
     )
 
+    _CHOICES = {"restart": ("glucose", "luby", "none"),
+                "ccmin": ("deep", "basic", "none")}
+    #: name -> the width of the native engine's unsigned field
+    _UNSIGNED = {"target_reset": 64, "walk_flips": 64, "walk_interval": 64,
+                 "walk_patience": 64, "walk_min_conflicts": 64, "first_reduce": 64,
+                 "reduce_inc": 64, "glue_keep": 32, "rnd_seed": 32}
+    _FLAGS = ("phase_saving", "init_phase", "target_phase", "block_restart")
+    _NUMBERS = ("var_decay", "var_decay_max", "cla_decay", "luby_base", "rnd_freq")
+
     def __init__(self, **kw) -> None:
         self.var_decay = 0.8  # ramps up to var_decay_max
         self.var_decay_max = 0.95
@@ -235,6 +244,36 @@ class Config:
             if k not in Config.__slots__:
                 raise TypeError(f"unknown config option {k!r}")
             setattr(self, k, v)
+        self.validate()
+
+    def validate(self) -> None:
+        """Raise ValueError unless both engines would run this configuration.
+
+        The engine is supposed to change the speed and never the answer, and these
+        made it change whether there was one. Python took anything, so a typo in
+        `restart` silently meant Glucose, while the native binding refused it, and
+        a seed of 2**32 or more with it. The two have different random streams past
+        that point, so a seed past u32 is refused and not masked. Runs on
+        construction and when a solver is built, since a Config can be changed in
+        between.
+        """
+        for name, choices in Config._CHOICES.items():
+            if getattr(self, name) not in choices:
+                raise ValueError(f"{name} must be one of {choices}, "
+                                 f"got {getattr(self, name)!r}")
+        for name, bits in Config._UNSIGNED.items():
+            v = getattr(self, name)
+            if not (type(v) is int and 0 <= v < (1 << bits)):
+                raise ValueError(f"{name} must be an integer in [0, 2**{bits}), got {v!r}")
+        if self.walk_interval == 0:
+            raise ValueError("walk_interval must be at least 1")
+        for name in Config._FLAGS:
+            if not isinstance(getattr(self, name), bool):
+                raise ValueError(f"{name} must be a bool, got {getattr(self, name)!r}")
+        for name in Config._NUMBERS:
+            v = getattr(self, name)
+            if isinstance(v, bool) or not isinstance(v, (int, float)):
+                raise ValueError(f"{name} must be a number, got {v!r}")
 
     def as_dict(self) -> dict:
         return {k: getattr(self, k) for k in Config.__slots__}
@@ -373,6 +412,7 @@ class Solver:
         config: Config | None = None,
     ) -> None:
         self.cfg = config or Config()
+        self.cfg.validate()
         self.stats = Stats()
         self.proof = proof
 
