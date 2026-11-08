@@ -156,7 +156,7 @@ private-docs:
 	PYTHONPATH=. $(VENV_PY) docs/private/example_a_python.py
 	PYTHONPATH=. $(VENV_PY) docs/private/example_b_modelling.py
 	PYTHONPATH=. $(VENV_PY) docs/private/example_c_money.py
-	cd docs/private && latexmk -pdf -quiet cdclkit-primer.tex cdclkit-status.tex provex-value.tex
+	cd docs/private && latexmk -pdf -quiet *.tex
 	@ls -1 docs/private/*.pdf
 
 clean-dist:
