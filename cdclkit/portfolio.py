@@ -558,7 +558,11 @@ def solve_portfolio(
         # Past 2 the gain is marginal and it is bought with diversity, which
         # this benchmark set under-represents -- only 3 of its 17 instances are
         # satisfiable, and diversity is what wins those.
-        preprocess_workers = max(1, jobs * 2 // 5) if jobs > 1 else 0
+        #
+        # None when there is a budget: preprocessing can refute without a conflict,
+        # and "unknown" would then depend on which worker got there first.
+        preprocess_workers = (max(1, jobs * 2 // 5)
+                              if jobs > 1 and max_conflicts is None else 0)
     if want_proof:
         # A preprocessing worker solves the *reduced* formula, so its proof
         # would refute that rather than the original, and the steps justifying

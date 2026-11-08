@@ -238,6 +238,16 @@ class TestConflictBudgetEverywhere(unittest.TestCase):
                         self.assertIn("s UNKNOWN", r.stdout)
                         self.assertNotIn("s UNSATISFIABLE", r.stdout)
 
+    def test_a_budget_of_zero_is_unknown_when_preprocessing_could_answer(self):
+        """The default -j runs a preprocessing worker, which refutes a small
+        pigeonhole without a conflict. Whether that beat the budget would be a race
+        between workers, so a budget turns that strategy off."""
+        for engine in self._engines():
+            with self.subTest(engine=engine):
+                r = self._run(0, ("-j", "2"), engine, PHP)
+                self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+                self.assertIn("s UNKNOWN", r.stdout)
+
     def test_a_budget_big_enough_answers(self):
         for engine in self._engines():
             for route in self.ROUTES:
