@@ -130,7 +130,12 @@ def _as_expr(x):
 
 
 class IntVar:
-    """A finite-domain integer, one-hot encoded over ``domain``."""
+    """A finite-domain integer, one-hot encoded over ``domain``.
+
+    The domain is a set, whatever iterable it came in: it is sorted, because the
+    order ladder is only an order when it ascends, and repeats are dropped, because
+    a value needs exactly one literal for `is_` to find.
+    """
 
     __slots__ = ("model", "domain", "lits", "name", "ge_lits")
 
@@ -138,7 +143,7 @@ class IntVar:
 
     def __init__(self, model: "Model", domain: Sequence[int], name: str = "") -> None:
         self.model = model
-        self.domain = list(domain)
+        self.domain = sorted(set(domain))
         self.name = name
         self.lits = [model.new_lit(f"{name}={v}") for v in self.domain]
         self.ge_lits: list[int] | None = None
