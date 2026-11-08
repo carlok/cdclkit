@@ -132,7 +132,8 @@ dratify's generators exit 1 on an open Note. The two repositories were not made 
 
 ## What was not checked
 
-- drat-trim, which was never run. `operational` is the oracle's approximation of it.
+- drat-trim, in this repository's corners: `operational` here is the oracle's approximation of it.
+  dratify's drat-trim corner runs the tool itself, on generated and solver proofs, not on these.
 - Only 7 of the 2^n · n! sign and order patterns per grid cell; `Solver` sinks past n = 6 on one pattern.
 - `at_most_k`'s `auto` switch at k·n > 20,000; proof logging through an encoding; `Optimiser` on native,
   which it refuses.
