@@ -68,6 +68,10 @@ that covers and what it does not.
   deadlines are not exceptions and are unaffected.
 - A repeated assumption, or a repeated index in `MUSExtractor`, means the same as
   one, instead of raising `IndexError`.
+- **A truncated `Totalizer` answered bounds past its cut wrongly.** `sum <= 1`
+  over two inputs with `max_count=1` constrained nothing, and `sum >= 2` refuted a
+  feasible problem. All 876 such bounds in the campaign were wrong. **They now raise
+  `ValueError`.** `at_most_k` and `Optimiser` never asked for one.
 
 ### Tests
 
