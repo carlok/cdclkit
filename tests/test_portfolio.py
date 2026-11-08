@@ -21,8 +21,11 @@ from __future__ import annotations
 
 import os
 import random
+import subprocess
+import sys
 import unittest
 
+from cdclkit import parse_dimacs
 from cdclkit.brute import exhaustive_solve
 from dratify.cnf import CNF
 from dratify.lits import mk_lit
@@ -336,6 +339,29 @@ class TestConfiguration(unittest.TestCase):
         text = r.report()
         self.assertIn("portfolio", text)
         self.assertIn("UNSATISFIABLE", text)
+
+
+class TestPortfolioDefaults(unittest.TestCase):
+    """`solve_portfolio(f)` is what the signature and the module docstring promise,
+    and it raised. Everything in the repo happens to pass `jobs`."""
+
+    def test_jobs_defaults_to_the_core_count(self):
+        r = solve_portfolio(parse_dimacs("p cnf 1 1\n1 0\n"))
+        self.assertIs(r.sat, True)
+
+    def test_empty_configs_are_refused(self):
+        """No worker started, the fallback called itself with the same empty list,
+        and it ended in RecursionError after spawning at every level."""
+        code = ("from cdclkit import parse_dimacs\n"
+                "from cdclkit.portfolio import solve_portfolio\n"
+                "try:\n"
+                "    solve_portfolio(parse_dimacs('p cnf 1 1\\n1 0\\n'), jobs=2, configs=[])\n"
+                "except ValueError as e:\n"
+                "    print('refused:', e)\n")
+        # in a subprocess, with a timeout: a regression spawns workers recursively
+        r = subprocess.run([sys.executable, "-c", code], capture_output=True,
+                           text=True, timeout=120)
+        self.assertIn("refused", r.stdout, r.stderr[-400:])
 
 
 if __name__ == "__main__":

@@ -543,6 +543,11 @@ def solve_portfolio(
         raise ValueError(f"unknown engine {engine!r} (expected native or python)")
     if max_conflicts is not None and max_conflicts < 0:
         raise ValueError(f"max_conflicts must not be negative, got {max_conflicts}")
+    if configs is not None and not configs:
+        raise ValueError("configs is empty, so no worker has anything to run")
+    if jobs is None:
+        jobs = performance_cores()
+    jobs = max(1, int(jobs))
     if preprocess_workers is None:
         # Roughly two fifths of the workers preprocess.  Measured on the
         # benchmark set at jobs=5 (total seconds over 17 instances):
@@ -561,9 +566,6 @@ def solve_portfolio(
         # configurations only, and every thread's buffer refutes the formula
         # the caller actually passed in.
         preprocess_workers = 0
-    if jobs is None:
-        jobs = performance_cores()
-    jobs = max(1, int(jobs))
     cfgs = list(configs) if configs is not None else default_configs(jobs)
     jobs = min(jobs, len(cfgs))
 
