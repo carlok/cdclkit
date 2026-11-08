@@ -195,7 +195,10 @@ def solve_adaptive(
     result has `sat is None`. Under `jobs > 1` what is left of it is each worker's
     own budget, as it is for :func:`~cdclkit.portfolio.solve_portfolio`.
     """
+    if engine not in ("native", "python"):
+        raise ValueError(f"unknown engine {engine!r} (expected native or python)")
     cfg = config or Config()
+    cfg.validate()
     if max_conflicts is not None and max_conflicts < 0:
         raise ValueError(f"max_conflicts must not be negative, got {max_conflicts}")
     if engine == "native" and not _native_available():

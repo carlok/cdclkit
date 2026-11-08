@@ -18,13 +18,19 @@ path stays green.
 
 from __future__ import annotations
 
+import pathlib
 import random
+import subprocess
+import sys
+import tempfile
 import unittest
 
-from cdclkit import native
+from cdclkit import native, parse_dimacs
 from cdclkit.brute import exhaustive_solve
 from dratify.cnf import CNF
 from dratify.lits import mk_lit
+from cdclkit.pipeline import solve_adaptive
+from cdclkit.portfolio import solve_portfolio
 from cdclkit.solver import Config, Solver
 from tests.util import random_cnf, fuzz_seed
 
@@ -332,6 +338,67 @@ class TestRandomBranchingAgrees(unittest.TestCase):
 
 
 @requires_native
+class TestBothEnginesTakeTheSameConfigs(unittest.TestCase):
+    """AGENTS.md says the engine changes the speed and never the answer. These
+    changed whether there was one: Python took `rnd_seed=2**32 + 1`, a negative
+    `glue_keep` and `restart="bogus"`, the last of which silently meant Glucose, and
+    native raised. So each is refused before either engine sees it."""
+
+    BAD = (
+        dict(rnd_seed=2 ** 32 + 1), dict(rnd_seed=2 ** 32), dict(rnd_seed=-1),
+        dict(glue_keep=-1), dict(glue_keep=2 ** 32), dict(first_reduce=-1),
+        dict(walk_flips=2 ** 64), dict(walk_flips=1.5), dict(walk_interval=0),
+        dict(restart="bogus"), dict(ccmin="bogus"),
+        dict(phase_saving=1), dict(target_phase="yes"), dict(var_decay="x"),
+        dict(rnd_freq=None), dict(luby_base=True),
+    )
+    GOOD = (dict(rnd_seed=0), dict(rnd_seed=2 ** 32 - 1), dict(glue_keep=0),
+            dict(walk_flips=0), dict(restart="none"), dict(ccmin="basic"),
+            dict(var_decay=1), dict(luby_base=2.5))
+
+    def _formula(self):
+        return parse_dimacs("p cnf 1 1\n1 0\n")
+
+    def test_config_refuses_what_an_engine_would(self):
+        for kw in self.BAD:
+            with self.subTest(kw=kw), self.assertRaises(ValueError):
+                Config(**kw)
+
+    def test_a_change_after_construction_is_caught_on_every_route(self):
+        cfg = Config()
+        cfg.restart = "bogus"
+        with self.assertRaises(ValueError):
+            Solver(1, config=cfg)
+        for engine in ("python", "native"):
+            with self.subTest(engine=engine), self.assertRaises(ValueError):
+                solve_adaptive(self._formula(), engine=engine, config=cfg)
+            with self.subTest(engine=engine), self.assertRaises(ValueError):
+                solve_portfolio(self._formula(), jobs=1, engine=engine, configs=[cfg])
+
+    @requires_native
+    def test_what_it_accepts_runs_on_both(self):
+        for kw in self.GOOD:
+            for engine in ("python", "native"):
+                with self.subTest(kw=kw, engine=engine):
+                    r = solve_adaptive(self._formula(), engine=engine, config=Config(**kw))
+                    self.assertIs(r.sat, True)
+
+    def test_an_unknown_engine_is_refused(self):
+        with self.assertRaises(ValueError):
+            solve_adaptive(self._formula(), engine="quantum")
+
+    def test_the_command_line_reports_it(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = pathlib.Path(d) / "f.cnf"
+            path.write_text("p cnf 1 1\n1 0\n")
+            r = subprocess.run([sys.executable, "-m", "cdclkit", "solve", str(path),
+                                "--adaptive", "--seed", str(2 ** 32 + 1)],
+                               capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn("rnd_seed", r.stderr)
+        self.assertNotIn("Traceback", r.stderr)
+
+
 @requires_native
 class TestModelClearedOnRefutation(unittest.TestCase):
     """Native returned before clearing the model when the formula was already
