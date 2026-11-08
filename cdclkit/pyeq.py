@@ -643,6 +643,12 @@ def _function_ast(fn: Callable) -> ast.FunctionDef:
         if isinstance(node, ast.FunctionDef):
             if node.decorator_list:
                 raise _unsupported(node.decorator_list[0].lineno, "a decorator")
+            # Here and not with the other parameter checks, because the signature
+            # is read first and would see only the parameters it knows about.
+            if node.args.posonlyargs:
+                raise UnsupportedConstruct(
+                    "positional-only parameters are not modelled, because the "
+                    "cross-check against Python calls by keyword")
             return node
     raise UnsupportedConstruct("no function definition found in the source")
 
@@ -665,6 +671,7 @@ def compile_function(
     _check_range_is_range(fn, tree)
     if tree.args.vararg or tree.args.kwarg or tree.args.kwonlyargs:
         raise UnsupportedConstruct("*args, **kwargs and keyword-only parameters")
+
     if tree.args.defaults or tree.args.kw_defaults:
         # Every parameter is compiled as a free symbolic input, so a default is
         # simply dropped. Two functions with different defaults would then be

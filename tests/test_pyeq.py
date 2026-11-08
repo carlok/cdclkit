@@ -27,7 +27,10 @@ import unittest
 
 from cdclkit import native
 
-from cdclkit.pyeq import UnsupportedConstruct, equivalent
+from dratify.cnf import CNF
+
+from cdclkit.encodings import Encoder
+from cdclkit.pyeq import UnsupportedConstruct, compile_function, equivalent
 
 
 def exhaustive_agree(f, g, widths):
@@ -546,6 +549,32 @@ class TestWidthClaim(unittest.TestCase):
         r = equivalent(f, g, {"a": 3, "b": 5})
         self.assertIs(r.proved, True)
         self.assertEqual(r.width, 5)
+
+
+class TestPositionalOnly(unittest.TestCase):
+    """The compiler read `args.args`, which leaves out positional-only parameters.
+    The cross-check then called `f(**counterexample)` and crashed, and a body reading
+    one was told it was "used before assignment"."""
+
+    def test_refused_whatever_widths_says(self):
+        def f(a, /, b): return b
+        def g(a, /, b): return b + 1
+        for widths in ({"b": 3}, {"a": 3, "b": 3}):
+            with self.subTest(widths=widths), self.assertRaises(UnsupportedConstruct) as cm:
+                equivalent(f, g, widths)
+            self.assertIn("positional-only", str(cm.exception))
+
+    def test_the_sharpest_form(self):
+        """300 and 44 differ at 16 bits, and this claimed they did not."""
+        def c(a, /): return 300
+        def d(a, /): return 44
+        with self.assertRaises(UnsupportedConstruct):
+            equivalent(c, d, {"a": 16})
+
+    def test_compile_function_refuses_too(self):
+        def c(a, /): return a
+        with self.assertRaises(UnsupportedConstruct):
+            compile_function(c, Encoder(CNF()), {"a": 4})
 
 
 class TestRejection(unittest.TestCase):

@@ -99,6 +99,9 @@ that covers and what it does not.
   8, and a function with no parameters, compiled at 8, said "at 0 bits".
   `result.width` is now the circuit's. **A `widths` key naming no parameter now
   raises `UnsupportedConstruct`.**
+- `pyeq` crashed with a bare `TypeError` on a counterexample for positional-only
+  parameters, which it also left out of the circuit. **They now raise
+  `UnsupportedConstruct`.**
 
 ### Tests
 
