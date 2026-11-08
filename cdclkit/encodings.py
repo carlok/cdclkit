@@ -650,8 +650,8 @@ class Totalizer:
         self.outputs = self._build(self.inputs)
 
     def _build(self, lits: Sequence[int]) -> list[int]:
-        if len(lits) == 1:
-            return [lits[0]]
+        if len(lits) <= 1:
+            return list(lits)
         mid = len(lits) // 2
         a = self._build(lits[:mid])
         b = self._build(lits[mid:])
