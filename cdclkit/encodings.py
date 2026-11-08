@@ -275,7 +275,7 @@ class Encoder:
 
             ("and", e1, e2, ...)   ("or", ...)   ("xor", e1, e2)
             ("not", e)             ("ite", c, t, e)      ("imp", a, b)
-            ("iff", a, b)          <int literal>
+            ("iff", a, b)          <int literal>      True      False
 
         ``polarity`` is +1 when the expression only ever needs to be *forced
         true* (so only the ``inputs -> out`` direction is required), -1 for the
@@ -284,6 +284,9 @@ class Encoder:
         occurs with one polarity can always be set to the value its definition
         prescribes.
         """
+        # before the int test, because True is the int 1 and 1 is a literal
+        if isinstance(expr, bool):
+            return self.true_lit if expr else self.false_lit
         if isinstance(expr, int):
             return expr
         op = expr[0]

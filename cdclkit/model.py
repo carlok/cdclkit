@@ -43,10 +43,40 @@ from .solver import Config, Solver
 __all__ = ["Model", "BoolVar", "IntVar", "Solution"]
 
 
+def _no_truth_value(self):
+    raise TypeError(
+        f"{self!r} has no truth value until the model is solved. `a and b` and "
+        f"`not a` are evaluated by Python and never reach the model: write "
+        f"`a & b`, `a | b` and `~a`.")
+
+
+class _Comparison(tuple):
+    """`a == b` on booleans: an expression tree that refuses to be a truth value.
+
+    A plain tuple is always truthy, so `a in [b]` would answer True and carry on.
+    """
+
+    __slots__ = ()
+
+    def __bool__(self):
+        raise TypeError(
+            "a comparison of model variables is a constraint, not a truth value: "
+            "pass it to Model.add()")
+
+
 class BoolVar:
-    """A boolean, with operators that build expression trees for Tseitin."""
+    """A boolean, with operators that build expression trees for Tseitin.
+
+    `==` and `!=` build trees too, as they do on :class:`IntVar`. Without them
+    `a == b` was Python's identity test, and `add(a == b)` was `add(False)`.
+    Anything but a boolean on the other side is refused, because `a == 1` could
+    mean the literal 1 or the value True. Truth testing is refused for the same
+    reason: `a and b` would otherwise be plain `b`.
+    """
 
     __slots__ = ("lit", "model", "name")
+
+    __bool__ = _no_truth_value
 
     def __init__(self, model: "Model", lit: int, name: str = "") -> None:
         self.model = model
@@ -72,22 +102,39 @@ class BoolVar:
     def iff(self, other):
         return ("iff", self.lit, _as_expr(other))
 
+    def _other(self, other):
+        if isinstance(other, (BoolVar, bool)):
+            return _as_expr(other)
+        raise TypeError(f"cannot compare {self!r} with {other!r}: use a BoolVar, "
+                        f"True or False")
+
+    def __eq__(self, other):  # type: ignore[override]
+        return _Comparison(("iff", self.lit, self._other(other)))
+
+    def __ne__(self, other):  # type: ignore[override]
+        return _Comparison(("xor", self.lit, self._other(other)))
+
+    def __hash__(self):
+        return id(self)
+
     def __repr__(self) -> str:
         return f"BoolVar({self.name or self.lit})"
 
 
 def _as_expr(x):
-    if isinstance(x, BoolVar):
-        return x.lit
-    if isinstance(x, bool):
-        return x
-    return x
+    """A BoolVar as its literal; anything else is already an expression.
+
+    That includes `True` and `False`, which `Encoder.tseitin` takes as constants.
+    """
+    return x.lit if isinstance(x, BoolVar) else x
 
 
 class IntVar:
     """A finite-domain integer, one-hot encoded over ``domain``."""
 
     __slots__ = ("model", "domain", "lits", "name", "ge_lits")
+
+    __bool__ = _no_truth_value
 
     def __init__(self, model: "Model", domain: Sequence[int], name: str = "") -> None:
         self.model = model
@@ -254,7 +301,7 @@ class Model:
         self.enc.assert_expr(_as_expr(expr))
 
     def add_clause(self, lits: Iterable[int]) -> None:
-        self.enc.add([_as_expr(l) for l in lits])
+        self.enc.add([self.enc.tseitin(_as_expr(l)) for l in lits])
 
     def all_different(self, variables: Sequence[IntVar]) -> None:
         """Pairwise-distinct, encoded value by value.
@@ -373,6 +420,11 @@ class Model:
 def _lit_of(x) -> int:
     if isinstance(x, BoolVar):
         return x.lit
+    # before the int test, because True is the int 1 and 1 is the literal "not
+    # variable 0"
+    if isinstance(x, bool):
+        raise TypeError(f"expected a literal or BoolVar, got {x}: a constant does "
+                        f"not belong in a cardinality constraint")
     if isinstance(x, int):
         return x
     raise TypeError(f"expected a literal or BoolVar, got {type(x)}")

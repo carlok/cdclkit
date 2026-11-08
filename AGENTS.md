@@ -48,6 +48,15 @@ sol = m.solve()                  # Solution or None
 sol.value(x)
 ```
 
+Python evaluates `and`, `or` and `not` before the model sees them, so they raise
+on a model variable. `a == b` is a constraint, the same as on an `IntVar`.
+
+```python
+m.add(a & b); m.add(a | b); m.add(~a)   # correct
+m.add(a == b)                           # correct: a constraint, not a test
+m.add(a and b)                          # TypeError: it would mean add(b)
+```
+
 Drop to `Encoder` when you need a constraint it does not offer
 (`exactly_one`, `at_most_k`, `assert_pb_leq`, Tseitin gates), and to raw
 clauses almost never.
