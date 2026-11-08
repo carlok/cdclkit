@@ -332,6 +332,25 @@ class TestRandomBranchingAgrees(unittest.TestCase):
 
 
 @requires_native
+@requires_native
+class TestModelClearedOnRefutation(unittest.TestCase):
+    """Native returned before clearing the model when the formula was already
+    refuted, so the caller could still read a model of the formula as it was."""
+
+    def _refuted(self, make):
+        s = make(1)
+        s.add_clause([0])
+        self.assertTrue(s.solve())
+        self.assertEqual(list(s.model), [True])
+        self.assertFalse(s.add_clause([1]))
+        self.assertFalse(s.solve())
+        return list(s.model)
+
+    def test_both_engines_leave_no_model(self):
+        self.assertEqual(self._refuted(Solver), [])
+        self.assertEqual(self._refuted(native.require().Solver), [])
+
+
 class TestTier2Faithfulness(unittest.TestCase):
     """Bit-exact agreement with the Python solver."""
 

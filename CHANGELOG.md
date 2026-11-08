@@ -107,6 +107,8 @@ that covers and what it does not.
   fallback, so `cdclkit solve g.cnf --preprocess -j 2` died on a formula as plain as
   two contradictory units, while `CDCLKIT_ENGINE=python` answered. Both now report
   UNSAT, and a preprocessor can be handed its own output.
+- After a re-solve refuted at the root, the native `Solver` still reported the old
+  model, where the Python one reports none. The verdict was always right.
 
 ### Tests
 
