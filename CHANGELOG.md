@@ -56,6 +56,18 @@ that covers and what it does not.
   range(n): return (0, 0, 0)` in the module, a loop adding 3 was proved to add 1.
   **Now refused:** those, a parameter named `range`, a step of zero (it was a bare
   `ValueError`) and a length past `sys.maxsize` (an `OverflowError`).
+- **A failed or interrupted solve poisoned later answers from the same `Solver`.**
+  An exception out of the search left its state half changed, and the next solve
+  could return a wrong UNSAT. `MUSExtractor.deletion` then returned a satisfiable
+  set and `verify` endorsed it. A repeated index was one trigger, through an
+  `IndexError` in `_lbd`, and a `KeyboardInterrupt` was another, with no repeats
+  at all. Now a `Solver` a call was cut short on says so through `Solver.broken`,
+  and **`solve`, `add_clause` and `new_var` raise `RuntimeError`** on it, because
+  there is no formula to rebuild from. `MUSExtractor` and `Model` build a new one
+  and carry on. `MUSExtractor.verify` runs on a solver of its own. Budgets and
+  deadlines are not exceptions and are unaffected.
+- A repeated assumption, or a repeated index in `MUSExtractor`, means the same as
+  one, instead of raising `IndexError`.
 
 ### Tests
 

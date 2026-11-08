@@ -380,7 +380,7 @@ class Model:
         proof on a later call asks for nothing, so a solver already logging can
         stay.
         """
-        if self.solver is None:
+        if self.solver is None or self.solver.broken:
             return False
         nvars, nclauses, built_with = self._built
         if (nvars, nclauses) != (self.cnf.nvars, self.cnf.nclauses):

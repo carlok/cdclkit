@@ -46,26 +46,43 @@ __all__ = ["MUSExtractor", "mus", "shrink_core"]
 
 
 class MUSExtractor:
-    """Wraps a formula with selector variables for incremental subset testing."""
+    """Wraps a formula with selector variables for incremental subset testing.
+
+    A subset is a set: a repeated index means the clause once. An extractor outlives
+    an interrupted call, which is the ordinary way to meet one in a notebook; the
+    solver that was interrupted is replaced, at the price of what it had learned.
+    """
 
     def __init__(self, formula: CNF) -> None:
         self.formula = formula
-        self.solver = Solver(formula.nvars)
-        self.selectors: list[int] = []
-        for clause in formula.clauses:
-            s = mk_lit(self.solver.new_var())
-            self.selectors.append(s)
-            # (~s or clause): assuming s switches the clause on
-            self.solver.add_clause([neg(s)] + list(clause))
+        self._load()
         self.calls = 0
+
+    def _load(self) -> None:
+        solver = Solver(self.formula.nvars)
+        selectors: list[int] = []
+        for clause in self.formula.clauses:
+            s = mk_lit(solver.new_var())
+            selectors.append(s)
+            # (~s or clause): assuming s switches the clause on
+            solver.add_clause([neg(s)] + list(clause))
+        self.solver, self.selectors = solver, selectors
 
     def is_unsat(self, subset: Sequence[int]) -> bool:
         """True when the clauses indexed by ``subset`` are unsatisfiable."""
         self.calls += 1
-        return not self.solver.solve([self.selectors[i] for i in subset])
+        assumptions = [self.selectors[i] for i in subset]
+        if self.solver.broken:
+            self._load()
+        return not self.solver.solve(assumptions)
+
+    def _candidates(self, subset: Sequence[int] | None) -> list[int]:
+        if subset is None:
+            return list(range(len(self.selectors)))
+        return list(dict.fromkeys(subset))
 
     def _all(self, subset: Sequence[int] | None) -> list[int]:
-        cands = list(range(len(self.selectors))) if subset is None else list(subset)
+        cands = self._candidates(subset)
         return cands if self.is_unsat(cands) else []
 
     def core(self, subset: Sequence[int] | None = None) -> list[int]:
@@ -74,7 +91,7 @@ class MUSExtractor:
         Not minimal, but usually far smaller than the input, and it costs
         nothing extra -- the solver computes it during the failed solve.
         """
-        candidates = list(range(len(self.selectors))) if subset is None else list(subset)
+        candidates = self._candidates(subset)
         if not self.is_unsat(candidates):
             return []
         by_sel = {self.selectors[i]: i for i in candidates}
@@ -131,13 +148,25 @@ class MUSExtractor:
         Costs ``|subset| + 1`` solver calls.  Cheap enough to run in anger, and
         the test suite always does -- a "minimal" set nobody checked is just a
         set.
+
+        On a solver of its own, holding only these clauses. A check that asks the
+        solver that produced the answer repeats whatever went wrong there: an
+        interrupted one once endorsed a satisfiable set.
         """
-        if not self.is_unsat(subset):
-            return False, "the subset is satisfiable"
-        for i in subset:
-            rest = [j for j in subset if j != i]
-            if self.is_unsat(rest):
-                return False, f"clause {i} is redundant: the rest is still unsatisfiable"
+        subset = self._candidates(subset)
+        only = CNF(self.formula.nvars)
+        only.clauses = [self.formula.clauses[i] for i in subset]
+        check = MUSExtractor(only)
+        try:
+            positions = range(len(subset))
+            if not check.is_unsat(positions):
+                return False, "the subset is satisfiable"
+            for p in positions:
+                if check.is_unsat([q for q in positions if q != p]):
+                    return False, (f"clause {subset[p]} is redundant: the rest is "
+                                   f"still unsatisfiable")
+        finally:
+            self.calls += check.calls
         return True, f"verified: unsatisfiable, and all {len(subset)} clauses are necessary"
 
 
