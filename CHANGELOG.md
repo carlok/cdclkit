@@ -7,6 +7,13 @@ that covers and what it does not.
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-11-09
+
+A minor bump, because code that used to run now raises: mostly code that was getting
+a wrong answer. Requires dratify 0.1.11, which fixes a refutation of a satisfiable
+formula accepted by every earlier release, and which this package's native engine
+embeds. Upgrade `cdclkit` and `cdclkit-native` together.
+
 ### Fixed
 
 - **`solve --preprocess --adaptive` printed a model of the reduced formula.**

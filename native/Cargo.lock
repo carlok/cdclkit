@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "cdclkit-native"
-version = "0.1.7"
+version = "0.2.0"
 dependencies = [
  "dratify",
  "pyo3",
@@ -12,9 +12,9 @@ dependencies = [
 
 [[package]]
 name = "dratify"
-version = "0.1.10"
+version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "452429a6f9845f403f27fd892a40b2edaec997cdda0b82481c940d3cb3d401d8"
+checksum = "4633d0ba4ed6558f5a5d48f90079521f7c6930abf2ec043f5d51e3be292a0870"
 
 [[package]]
 name = "heck"
