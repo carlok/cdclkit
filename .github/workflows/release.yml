@@ -95,13 +95,16 @@ jobs:
         include:
           - { os: ubuntu-latest, target: x86_64 }
           - { os: ubuntu-latest, target: aarch64 }
-          - { os: macos-14,      target: aarch64 }
+          # macos-latest rather than a numbered image: macos-14 was retired under a
+          # release, whose wheels were then cancelled before any step ran. abi3 means
+          # the image does not decide which Pythons a wheel serves.
+          - { os: macos-latest,  target: aarch64 }
           # Intel macOS is cross-compiled from the arm64 runner rather than
           # built on macos-13. That image is being retired and its runners are
           # scarce: the job sat queued for over ten minutes with none assigned,
           # holding up a release whose other four builds had finished. abi3 +
           # cross-compilation needs no Intel host.
-          - { os: macos-14,      target: x86_64 }
+          - { os: macos-latest,  target: x86_64 }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

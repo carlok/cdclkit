@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import random
 import signal
+import sys
 import unittest
 from unittest import mock
 
@@ -271,6 +272,10 @@ class TestAnInterruptedCallCannotPoisonALaterOne(unittest.TestCase):
         only that every outcome is right, however many it interrupts."""
         if not hasattr(signal, "setitimer"):
             self.skipTest("no interval timer on this platform")
+        if sys.gettrace() is not None:
+            # An interrupt landing inside a trace function unsets it for good, so
+            # under tests/coverage_report.py every later test went unmeasured.
+            self.skipTest("a signal would switch the tracer off")
 
         def handler(signum, frame):
             raise KeyboardInterrupt

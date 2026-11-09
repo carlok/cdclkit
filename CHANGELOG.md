@@ -7,6 +7,26 @@ that covers and what it does not.
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-11-09
+
+Use this release, not 0.2.0, if you want the native engine.
+
+### Fixed
+
+- **`cdclkit-native` 0.2.0 was never published.** GitHub retired the macOS image its
+  wheels were built on, so the release stopped after `cdclkit` 0.2.0 reached PyPI.
+  `cdclkit[native]==0.2.0` cannot be installed, and `cdclkit-native` 0.1.7 and earlier
+  embed a checker that accepts refutations of satisfiable formulas. Wheels are now built
+  on `macos-latest`. Nothing else in the package changes from 0.2.0.
+- The coverage report read low because a test's timer switched its tracer off.
+
+## [0.2.0] — 2026-11-09
+
+A minor bump, because code that used to run now raises: mostly code that was getting
+a wrong answer. Requires dratify 0.1.11, which fixes a refutation of a satisfiable
+formula accepted by every earlier release, and which this package's native engine
+embeds. Upgrade `cdclkit` and `cdclkit-native` together.
+
 ### Fixed
 
 - **`solve --preprocess --adaptive` printed a model of the reduced formula.**
@@ -152,10 +172,6 @@ Found by the same campaign, reviewed, and not changed.
 
 ### Tests
 
-- The campaign generators treat a fixed finding as a regression, which fails the run,
-  and report an open one without failing. See `campaign/status.py` and
-  `campaign/findings/STATUS.md`. Exit 0 now means nothing regressed and nothing is
-  unexplained.
 - CI now runs `make lint` and `bench/compare.py --quick`, the part of
   `make gate` it had been skipping although CONTRIBUTING said it ran all of it.
   The reference solvers are MiniSat and CaDiCaL.

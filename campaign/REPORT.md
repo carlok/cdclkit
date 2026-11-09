@@ -4,7 +4,11 @@ Tiny formulas and brute force, an oracle that shares no code with this repositor
 (`campaign/oracle.py`, reviewed by a second agent), a small DPLL for encodings past 16 variables
 (`campaign/dpll.py`), and one seeded generator per corner.
 
-**Seven Critical defects were found and fixed on this branch, none yet released.** Since Critical
+**Seven Critical defects were found and fixed, and released in 0.2.0:**
+[GHSA-82pg-jv96-v48m](https://github.com/carlok/cdclkit/security/advisories/GHSA-82pg-jv96-v48m). Use
+0.2.1 with the native engine: `cdclkit-native` 0.2.0 was never published, because GitHub had retired
+its macOS runner. The commit hashes below are this branch's; `main` holds the same changes under its
+own. Since Critical
 findings appeared, no README sentence is proposed.
 
 ## Corners
@@ -124,8 +128,8 @@ Everything below raises or answers differently where it used to give an answer, 
   engines. A negative `--conflicts` is an error. `--self-check` can now exit 1 on a wrong model.
   `on_improve` fires only on improvement.
 
-The Python package and native engine must ship together: 8 tests fail with this branch's Python and the
-released `cdclkit-native` 0.1.7, as they need its Rust changes.
+The Python package and native engine ship together: 8 tests fail with 0.2.x Python and `cdclkit-native`
+0.1.7, as they need its Rust changes.
 
 The generators here exit 0 with open findings, and only a regression or an unexplained mismatch fails.
 dratify's generators exit 1 on an open Note. The two repositories were not made to match.
