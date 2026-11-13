@@ -1,5 +1,8 @@
 # Notes for coding agents
 
+**Changing this repository?** Read [AGENT.md](AGENT.md) for setup, tests, and
+coverage. This file is only about *using* the `cdclkit` API.
+
 Everything here is a mistake that has actually been made against this API, not
 a hypothetical. If you are generating code that uses `cdclkit`, read this
 first; it is shorter than debugging the same four things again.

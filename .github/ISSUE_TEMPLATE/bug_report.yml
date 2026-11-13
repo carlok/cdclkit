@@ -1,0 +1,51 @@
+name: Bug report
+description: Incorrect verdict, crash, hang, or other defect
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. For security issues, use [private vulnerability reporting](https://github.com/carlok/cdclkit/security/advisories/new) instead.
+
+        If you can, attach a small DIMACS file or a minimal Python snippet that reproduces the problem.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what did you get instead?
+      placeholder: e.g. formula is SAT but cdclkit returned UNSAT
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Commands, version, and engine if relevant (`python` vs `native`).
+      placeholder: |
+        cdclkit --version
+        cdclkit solve example.cnf
+    validations:
+      required: true
+
+  - type: dropdown
+    id: engine
+    attributes:
+      label: Engine
+      options:
+        - Python (default)
+        - Native (Rust)
+        - Adaptive / portfolio
+        - Not sure
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: cdclkit version
+      placeholder: e.g. 0.2.1 or git commit
+    validations:
+      required: false

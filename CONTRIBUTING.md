@@ -8,7 +8,7 @@ the proof checker. Without it the suite stops with import errors.
 ```bash
 pip install dratify        # or: pip install -e .
 make test                  # the full suite, no Rust needed
-make coverage              # statement coverage, floor 72%
+make coverage              # statement coverage, floor 75%
 make lint                  # every file compiles, including those no test imports
 make gate                  # tests, conflict baselines, agreement with a reference solver
 ```

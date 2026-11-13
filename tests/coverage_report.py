@@ -46,7 +46,7 @@ def statement_lines(path: pathlib.Path) -> set[int]:
 #: Below the measured number with real margin. Raise it when coverage rises;
 #: never lower it to make a red build green -- a drop needs tests, not a
 #: smaller number.
-FLOOR = 72.0
+FLOOR = 75.0
 
 
 def main() -> int:
