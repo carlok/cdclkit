@@ -195,6 +195,11 @@ otherwise.
 [AGENTS.md](AGENTS.md) lists the API's sharp edges — the mistakes that have
 actually been made, not hypothetical ones. Worth reading before writing a line.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Automated agents editing the repo should
+read [AGENT.md](AGENT.md). This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md).
+
 ## Licence
 
 Apache-2.0. See [LICENSE](LICENSE).
