@@ -2,9 +2,10 @@
 
 ## Reporting
 
-Use GitHub's [private vulnerability
-reporting](https://github.com/carlok/cdclkit/security/advisories/new). Please do
-not open a public issue for anything in the first category below.
+Report vulnerabilities privately through GitHub's [private vulnerability
+reporting](https://github.com/carlok/cdclkit/security/advisories/new): open the
+repository **Security** tab and choose **Report a vulnerability** (or use that
+link directly). Please do not open a public issue for a security report.
 
 ## What counts as a vulnerability here
 

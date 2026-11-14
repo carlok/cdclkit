@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting. For security issues, use [private vulnerability reporting](https://github.com/carlok/cdclkit/security/advisories/new) instead.
+        Thanks for reporting. For security issues, see [SECURITY.md](https://github.com/carlok/cdclkit/blob/main/SECURITY.md) and report privately — do not use a public issue.
 
         If you can, attach a small DIMACS file or a minimal Python snippet that reproduces the problem.
 

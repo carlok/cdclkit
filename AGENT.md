@@ -50,5 +50,6 @@ literal encoding, DIMACS I/O, or the proof checker belong in
 
 ## Conduct and templates
 
-Follow [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Use the GitHub issue and pull
-request templates when opening work on the forge.
+Follow [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). For security reports, follow
+[SECURITY.md](SECURITY.md) — do not open a public issue. Use the GitHub issue
+and pull request templates when opening other work on the forge.
