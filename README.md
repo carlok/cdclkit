@@ -197,8 +197,10 @@ actually been made, not hypothetical ones. Worth reading before writing a line.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Automated agents editing the repo should
-read [AGENT.md](AGENT.md). This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md). Report security vulnerabilities privately
+as described in [SECURITY.md](SECURITY.md), not via a public issue. Automated
+agents editing the repo should read [AGENT.md](AGENT.md). This project follows
+the [Contributor Covenant](CODE_OF_CONDUCT.md).
 
 ## Licence
 
