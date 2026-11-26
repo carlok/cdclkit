@@ -17,6 +17,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 from cdclkit.cli import (EXIT_BAD_PROOF, EXIT_ERROR, EXIT_SAT, EXIT_UNKNOWN,
                        EXIT_UNSAT, main)
@@ -246,6 +247,35 @@ class TestCLI(unittest.TestCase):
         seq, _ = run_cli("solve", self.rand, "--no-model")
         par, _ = run_cli("solve", self.rand, "--no-model", "--jobs", "2")
         self.assertEqual(seq, par, "the portfolio disagreed with the sequential solve")
+
+    def test_parallel_solve_passes_the_search_flags_to_worker_0(self):
+        """`-j` accepted --restart, --seed and the rest and then ran
+        `default_configs`, so none of them reached a worker."""
+        from cdclkit import cli
+        from cdclkit.portfolio import default_configs
+        from cdclkit.solver import Config
+
+        with mock.patch.object(cli, "solve_portfolio",
+                               wraps=cli.solve_portfolio) as spy:
+            code, _ = run_cli("solve", self.php, "--no-model", "-j", "2",
+                              "--restart", "glucose", "--seed", "5")
+        self.assertEqual(code, EXIT_UNSAT)
+        cfgs = spy.call_args.kwargs["configs"]
+        self.assertEqual(len(cfgs), 2)
+        self.assertEqual(cfgs[0].as_dict(),
+                         Config(restart="glucose", rnd_seed=5).as_dict())
+        self.assertEqual(cfgs[1].as_dict(), default_configs(2)[1].as_dict())
+
+    def test_parallel_solve_without_search_flags_is_unchanged(self):
+        from cdclkit import cli
+        from cdclkit.portfolio import default_configs
+
+        with mock.patch.object(cli, "solve_portfolio",
+                               wraps=cli.solve_portfolio) as spy:
+            code, _ = run_cli("solve", self.php, "--no-model", "-j", "2")
+        self.assertEqual(code, EXIT_UNSAT)
+        self.assertEqual([c.as_dict() for c in spy.call_args.kwargs["configs"]],
+                         [c.as_dict() for c in default_configs(2)])
 
     def test_module_entry_point(self):
         proc = subprocess.run(

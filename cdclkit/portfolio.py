@@ -69,6 +69,7 @@ __all__ = [
     "solve_portfolio",
     "PortfolioResult",
     "default_configs",
+    "configs_with_base",
     "performance_cores",
     "usable_start_method",
 ]
@@ -198,6 +199,24 @@ def default_configs(n: int) -> list[Config]:
         # a distinct seed per worker, so duplicated recipes still diverge
         kw["rnd_seed"] = 91648253 + 7919 * i
         out.append(Config(**kw))
+    return out
+
+
+def configs_with_base(base: Config, n: int) -> list[Config]:
+    """:func:`default_configs` with worker 0 running `base` instead.
+
+    A caller with search settings of its own -- the CLI's `--restart`, `--seed`
+    and the rest -- wants them to reach the portfolio, and `default_configs`
+    alone has nowhere to put them. `cdclkit solve -j 2 --restart none` used to
+    accept the flag and run two workers that never saw it. Worker 0 is the
+    natural slot: it is the plain default anyway, so `base=Config()` gives back
+    exactly `default_configs(n)`, and the other workers keep their diversity.
+
+    `base` is copied, so the caller can go on changing its own object.
+    """
+    out = default_configs(n)
+    if out:
+        out[0] = Config(**base.as_dict())
     return out
 
 

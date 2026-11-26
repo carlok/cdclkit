@@ -254,12 +254,14 @@ def solve_adaptive(
         return r
 
     if jobs > 1:
-        from .portfolio import solve_portfolio
+        from .portfolio import configs_with_base, solve_portfolio
 
         # preprocess_workers=0 because this formula is *already* preprocessed;
         # asking for preprocessing workers here would both redo the work and
         # force the process-based path, paying ~60 ms of startup for nothing
+        # worker 0 runs `cfg`, as the sequential branch below does
         pr = solve_portfolio(red, jobs=jobs, engine=engine,
+                             configs=configs_with_base(cfg, jobs),
                              preprocess_workers=0, timeout=seconds,
                              max_conflicts=remaining)
         status = pr.sat
