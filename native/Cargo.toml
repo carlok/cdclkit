@@ -3,7 +3,9 @@ name = "cdclkit-native"
 version = "0.2.1"
 license = "Apache-2.0"
 edition = "2021"
-rust-version = "1.70"
+# The floor of the locked pyo3 0.30.1. It said 1.70, which nothing checked;
+# the msrv job in ci.yml builds with exactly this version now.
+rust-version = "1.85"
 description = "Optional native engine for the cdclkit SAT toolkit"
 repository = "https://github.com/carlok/cdclkit"
 

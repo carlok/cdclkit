@@ -153,3 +153,24 @@ jobs:
         if: matrix.python == '3.12'
       - run: cd native && cargo clippy --all-targets -- -D warnings
         if: matrix.python == '3.12'
+
+  # The oldest Rust that native/Cargo.toml claims. The claim said 1.70 while
+  # the locked pyo3 needed 1.85, because no job ever built with it. This reads
+  # the number from the manifest, so raising it there is the whole change.
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: msrv
+        name: read rust-version from native/Cargo.toml
+        run: |
+          v=$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' native/Cargo.toml)
+          if [ -z "$v" ]; then
+            echo "::error::native/Cargo.toml has no rust-version"
+            exit 1
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          toolchain: ${{ steps.msrv.outputs.version }}
+      - run: cd native && cargo check --locked --all-targets --no-default-features
