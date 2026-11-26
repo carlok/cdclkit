@@ -137,7 +137,7 @@ def _solve(f: CNF, cfg: Config, budget: int | None, engine: str,
     return res, (list(s.model) if res else None), s.stats.conflicts
 
 
-def _preprocess(f: CNF, engine: str, proof=None):
+def _preprocess(f: CNF, engine: str, proof=None, rounds: int = 3):
     """Returns (reduced_formula, unsat, reconstruct_fn, seconds)."""
     t0 = time.perf_counter()
     if engine == "native" and _native_available():
@@ -151,7 +151,7 @@ def _preprocess(f: CNF, engine: str, proof=None):
         p = n.Preprocessor(f.nvars, with_proof=proof is not None)
         for c in f.clauses:
             p.add_clause(list(c))
-        p.run(3)
+        p.run(rounds)
         _drain_native_proof(p, proof)
         red = CNF(f.nvars)
         for c in p.reduced():
@@ -162,7 +162,7 @@ def _preprocess(f: CNF, engine: str, proof=None):
     from .preprocess import Preprocessor
 
     p = Preprocessor(f, proof=proof)
-    red = p.run()
+    red = p.run(rounds=rounds)
     return red, p.unsat, p.reconstruct, time.perf_counter() - t0
 
 
@@ -177,6 +177,7 @@ def solve_adaptive(
     seconds: float | None = None,
     proof=None,
     max_conflicts: int | None = None,
+    prep_rounds: int = 3,
 ) -> PipelineResult:
     """Solve `f`, preprocessing only when a short probe says it is worth it.
 
@@ -198,6 +199,9 @@ def solve_adaptive(
     `max_conflicts` bounds the whole run, probe included, and on exhaustion the
     result has `sat is None`. Under `jobs > 1` what is left of it is each worker's
     own budget, as it is for :func:`~cdclkit.portfolio.solve_portfolio`.
+
+    `prep_rounds` is the preprocessor's round count, as `--prep-rounds` is for
+    `cdclkit solve --preprocess`.
     """
     if engine not in ("native", "python"):
         raise ValueError(f"unknown engine {engine!r} (expected native or python)")
@@ -205,6 +209,10 @@ def solve_adaptive(
     cfg.validate()
     if max_conflicts is not None and max_conflicts < 0:
         raise ValueError(f"max_conflicts must not be negative, got {max_conflicts}")
+    # Checked here because neither engine says it: the native binding raises
+    # OverflowError on the conversion and Python silently runs no rounds.
+    if prep_rounds < 0:
+        raise ValueError(f"prep_rounds must not be negative, got {prep_rounds}")
     if engine == "native" and not _native_available():
         engine = "python"
     if proof is not None and jobs > 1:
@@ -243,7 +251,8 @@ def solve_adaptive(
         r.clauses_after = f.nclauses
         return r
 
-    red, unsat, reconstruct, prep_s = _preprocess(f, engine, proof=proof)
+    red, unsat, reconstruct, prep_s = _preprocess(f, engine, proof=proof,
+                                                  rounds=prep_rounds)
     r.preprocessed = True
     r.prep_seconds = prep_s
     r.clauses_after = red.nclauses

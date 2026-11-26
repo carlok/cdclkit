@@ -147,6 +147,7 @@ def cmd_solve(args) -> int:
             jobs=jobs,
             proof=proof_sink,
             max_conflicts=args.conflicts,
+            prep_rounds=args.prep_rounds,
         )
         print(pr.report())
         print(f"c {pr.conflicts} conflicts in {pr.seconds:.3f}s")

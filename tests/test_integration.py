@@ -277,6 +277,24 @@ class TestCLI(unittest.TestCase):
         self.assertEqual([c.as_dict() for c in spy.call_args.kwargs["configs"]],
                          [c.as_dict() for c in default_configs(2)])
 
+    def test_adaptive_passes_prep_rounds_on(self):
+        from cdclkit import pipeline
+
+        with mock.patch.object(pipeline, "solve_adaptive",
+                               wraps=pipeline.solve_adaptive) as spy:
+            code, _ = run_cli("solve", self.php, "--no-model", "--adaptive",
+                              "--prep-rounds", "1", "--self-check")
+        self.assertEqual(code, EXIT_UNSAT)
+        self.assertEqual(spy.call_args.kwargs["prep_rounds"], 1)
+
+    def test_adaptive_refuses_negative_prep_rounds(self):
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            code, _ = run_cli("solve", self.php, "--no-model", "--adaptive",
+                              "--prep-rounds", "-1")
+        self.assertEqual(code, EXIT_ERROR)
+        self.assertIn("prep_rounds", err.getvalue())
+
     def test_module_entry_point(self):
         proc = subprocess.run(
             [sys.executable, "-m", "cdclkit", "stats", self.rand],

@@ -177,6 +177,40 @@ class TestPortfolioStage(unittest.TestCase):
             [c.as_dict() for c in portfolio.default_configs(2)])
 
 
+class TestPrepRounds(unittest.TestCase):
+    """`--adaptive --prep-rounds N` reached neither preprocessor: both ran 3."""
+
+    def test_the_count_reaches_the_preprocessor(self):
+        from cdclkit import pipeline
+
+        for engine in ENGINES:
+            for rounds in (1, 3):
+                with self.subTest(engine=engine, rounds=rounds), \
+                        mock.patch.object(pipeline, "_preprocess",
+                                          wraps=pipeline._preprocess) as spy:
+                    r = solve_adaptive(php(5), engine=engine,
+                                       always_preprocess=True,
+                                       prep_rounds=rounds)
+                    self.assertFalse(r.sat)
+                    self.assertEqual(spy.call_args.kwargs["rounds"], rounds)
+
+    def test_the_default_is_three(self):
+        from cdclkit import pipeline
+
+        with mock.patch.object(pipeline, "_preprocess",
+                               wraps=pipeline._preprocess) as spy:
+            solve_adaptive(php(4), engine="python", always_preprocess=True)
+        self.assertEqual(spy.call_args.kwargs["rounds"], 3)
+
+    def test_a_negative_count_is_refused(self):
+        """Native raised OverflowError on the conversion, and Python ran no
+        rounds without saying so."""
+        for engine in ENGINES:
+            with self.subTest(engine=engine), \
+                    self.assertRaisesRegex(ValueError, "prep_rounds"):
+                solve_adaptive(php(4), engine=engine, prep_rounds=-1)
+
+
 @unittest.skipUnless(native.available(), "native engine not built")
 class TestNativePreprocessorAgreesWithPython(unittest.TestCase):
     def test_same_verdict_and_valid_models(self):
