@@ -54,9 +54,10 @@ regression and fails the run. An open one is reported and does not.
 
 ## preprocess-4 and engines-1 under dratify's deletion rule
 
-Rechecked against dratify's `campaign/soundness` branch, still numbered 0.1.10 but not released
-as such, whose rule is that deleting a clause unit under the root assignment is ignored. On 2500 random formulas of up to 9 variables, of which 2115 are
-unsatisfiable, `solve_adaptive` was run with `always_preprocess=True` and with a probe of 0
+Rechecked against dratify's `campaign/soundness` branch while it was still numbered 0.1.10. It
+has since been merged into dratify's `main` and released as dratify 0.1.11, whose rule is that
+deleting a clause unit under the root assignment is ignored. On 2500 random formulas of up to 9
+variables, of which 2115 are unsatisfiable, `solve_adaptive` was run with `always_preprocess=True` and with a probe of 0
 conflicts, on each engine. Every refutation went through dratify's Python and Rust checkers.
 
 | Route | Refutations | Rejected by dratify, Python | Rejected by dratify, Rust | Failing `specified` |

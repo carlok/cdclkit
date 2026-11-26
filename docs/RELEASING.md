@@ -49,9 +49,11 @@ also means a tag pushed *without* a version bump would silently publish nothing
 ## 1. The tree has to be honest
 
 ```bash
-make gate                    # tests, examples, conflict baselines
+make gate                    # tests, coverage, conflict baselines, reference-solver agreement
+make examples                # every example script
 make test-native             # the same suite against the Rust engine
-cd native && cargo test && cargo clippy --all-targets
+cd native && cargo test --release --no-default-features
+cd native && cargo clippy --all-targets -- -D warnings
 make smoke                   # build both wheels, install clean, run from /
 ```
 
@@ -137,13 +139,14 @@ shasum -a 256 dist/*
 The pure-Python wheel is `py3-none-any` and is byte-identical between builds
 from the same source — `make repro` checks it, and it holds today. That is a
 same-machine result; cross-machine reproducibility is plausible but has not
-been measured, so do not claim it. The native wheel is per-platform and per
-Python minor version and is not expected to reproduce across toolchains.
+been measured, so do not claim it. The native wheels are abi3, one per platform
+for every Python from 3.10 up, and are not expected to reproduce across
+toolchains.
 
 ## 5. Tag and release
 
 ```bash
-git tag -s v0.1.3 -m "cdclkit 0.1.3"     # signed; an unsigned tag proves nothing
+git tag -a v0.1.3 -m "cdclkit 0.1.3"     # annotated, as every release tag so far
 git push origin main --follow-tags       # the tag push is what publishes
 ```
 
