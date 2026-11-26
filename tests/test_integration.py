@@ -13,6 +13,7 @@ import contextlib
 import io
 import os
 import runpy
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -36,6 +37,8 @@ class TestCLI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp = tempfile.mkdtemp(prefix="cdclkit-test-")
+        # registered before anything else can fail, so it runs either way
+        cls.addClassCleanup(shutil.rmtree, cls.tmp, ignore_errors=True)
         cls.php = os.path.join(cls.tmp, "php.cnf")
         cls.queens = os.path.join(cls.tmp, "queens.cnf")
         cls.rand = os.path.join(cls.tmp, "rand.cnf")
@@ -302,6 +305,20 @@ class TestCLI(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, EXIT_UNKNOWN)
         self.assertIn("clauses", proc.stdout)
+
+
+class TestNoLitter(unittest.TestCase):
+    def test_the_cli_fixture_removes_its_directory(self):
+        """TestCLI left a cdclkit-test-* directory in the temp dir on every
+        run."""
+        with tempfile.TemporaryDirectory() as tmp:
+            env = dict(os.environ, TMPDIR=tmp)
+            proc = subprocess.run(
+                [sys.executable, "-m", "unittest",
+                 "tests.test_integration.TestCLI.test_generators_write_valid_dimacs"],
+                capture_output=True, text=True, cwd=ROOT, env=env)
+            self.assertEqual(proc.returncode, 0, proc.stderr[-800:])
+            self.assertEqual(os.listdir(tmp), [])
 
 
 class TestExamples(unittest.TestCase):
