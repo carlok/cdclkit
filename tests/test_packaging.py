@@ -292,6 +292,40 @@ class TestReleaseOrder(unittest.TestCase):
                 self.assertEqual(self.needs[job], {"build"})
 
 
+def _make_recipe(target: str) -> list[str]:
+    """The recipe lines of a Makefile target, tabs stripped."""
+    lines = _read("Makefile").splitlines()
+    start = next(i for i, ln in enumerate(lines)
+                 if re.match(rf"^{re.escape(target)}:", ln))
+    out = []
+    for ln in lines[start + 1:]:
+        if ln.startswith("\t"):
+            out.append(ln.strip())
+        elif ln.strip() and not ln.startswith("#"):
+            break
+    return out
+
+
+class TestMakeTargets(unittest.TestCase):
+    """`make smoke` and `make gate` as the release checklist relies on them."""
+
+    def test_the_gate_checks_the_coverage_floor_as_ci_does(self):
+        self.assertIn("$(PYTHON) tests/coverage_report.py", _make_recipe("gate"))
+
+    def test_smoke_installs_dratify_before_the_offline_install(self):
+        """dist/ has no dratify, so the --no-index install could never resolve
+        cdclkit's one dependency and the target failed on every run."""
+        recipe = _make_recipe("smoke")
+        dratify = next(i for i, ln in enumerate(recipe)
+                       if ln.endswith("pip install -q dratify"))
+        offline = next(i for i, ln in enumerate(recipe) if "--no-index" in ln)
+        self.assertLess(dratify, offline)
+
+    def test_smoke_writes_inside_its_own_directory(self):
+        self.assertNotIn("/tmp", " ".join(_make_recipe("smoke")))
+        self.assertIn(".smoke/", _read(".gitignore").splitlines())
+
+
 class TestLicenceConsistency(unittest.TestCase):
     """The tree is Apache-2.0; every place that states a licence must agree.
 

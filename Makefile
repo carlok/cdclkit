@@ -16,7 +16,7 @@ help:
 	@echo "make compare   -- benchmark against external solvers on this machine"
 	@echo "make bench-public-- fetch and run the public SATLIB corpus"
 	@echo "make portfolio -- parallel portfolio timings on this machine"
-	@echo "make gate      -- everything that must pass before a commit"
+	@echo "make gate      -- everything that must pass before a commit (with coverage, slow)"
 	@echo "make checkpoint LABEL=x -- gate, then record a benchmark checkpoint"
 	@echo "make history   -- benchmark checkpoints recorded so far"
 	@echo "make paper     -- build tex/cdclkit.pdf (positioning, business + technical)"
@@ -71,9 +71,12 @@ bench-public:
 compare:
 	$(PYTHON) bench/compare.py --check-proofs
 
-# The definition of "stable": no commit lands unless this passes.
+# The definition of "stable": no commit lands unless this passes. Coverage is
+# here because CI's coverage job checks the floor, and a gate that passes what
+# CI then fails is not one.
 gate:
 	$(PYTHON) -m unittest discover -s tests
+	$(PYTHON) tests/coverage_report.py
 	$(PYTHON) bench/run_bench.py --quick --configs all --check-baseline
 	$(PYTHON) bench/compare.py --quick
 
@@ -127,14 +130,20 @@ dist: venv
 # The wheel is the artefact users get; the repo is not. Testing the repo and
 # calling the release verified is how a missing package, a broken entry point
 # or a file that never made it into the build reaches someone else first.
+#
+# dratify comes from PyPI first, because dist/ holds only this repository's
+# wheels and the --no-index install could not resolve it. That install still
+# takes both cdclkit wheels from dist/ alone, so the native pin is enforced
+# against what was just built.
 smoke: dist
 	rm -rf .smoke && $(PYTHON) -m venv .smoke
+	.smoke/bin/pip install -q dratify
 	.smoke/bin/pip install -q "cdclkit[native]==$$($(PYTHON) -c 'import cdclkit; print(cdclkit.__version__)')" \
 		--find-links dist --no-index
-	@echo "c installed:" && .smoke/bin/pip list --format=freeze | grep cdclkit
+	@echo "c installed:" && .smoke/bin/pip list --format=freeze | grep -E 'cdclkit|dratify'
 	cd / && $(CURDIR)/.smoke/bin/cdclkit --version
-	cd / && $(CURDIR)/.smoke/bin/cdclkit gen php -n 5 --out /tmp/cdclkit-smoke.cnf
-	cd / && $(CURDIR)/.smoke/bin/cdclkit solve /tmp/cdclkit-smoke.cnf --self-check --no-model; \
+	cd / && $(CURDIR)/.smoke/bin/cdclkit gen php -n 5 --out $(CURDIR)/.smoke/php5.cnf
+	cd / && $(CURDIR)/.smoke/bin/cdclkit solve $(CURDIR)/.smoke/php5.cnf --self-check --no-model; \
 		test $$? -eq 20 || (echo "expected exit 20 (UNSAT)" && exit 1)
 	cd / && $(CURDIR)/.smoke/bin/python $(CURDIR)/tests/smoke_installed.py
 	@echo "c smoke ok: the built artefacts work with no checkout on the path"

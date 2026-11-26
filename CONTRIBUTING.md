@@ -10,7 +10,7 @@ pip install dratify        # or: pip install -e .
 make test                  # the full suite, no Rust needed
 make coverage              # statement coverage, floor 75%
 make lint                  # every file compiles, including those no test imports
-make gate                  # tests, conflict baselines, agreement with a reference solver
+make gate                  # tests, coverage, conflict baselines, agreement with a reference solver
 ```
 
 `make gate` is what to run before opening a PR. It needs one reference solver on

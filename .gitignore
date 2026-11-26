@@ -5,6 +5,7 @@ build/
 *.egg-info/
 native/target/
 .venv/
+.smoke/
 bench/instances/
 experiments/*/.venv/
 
