@@ -7,6 +7,60 @@ that covers and what it does not.
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-11-26
+
+Two command-line flags that were accepted and then ignored now take effect, and
+the release workflow can no longer publish half a release. The `[native]` extra
+pins `cdclkit-native` 0.2.2.
+
+### Fixed
+
+- **`-j N` ignored the search flags.** `cdclkit solve -j 2 --restart none` ran two
+  workers on their own settings, and neither used `--restart none`. `--var-decay`,
+  `--ccmin`, `--no-phase-saving`, `--rnd-freq` and `--seed` were dropped the same
+  way. Worker 0 now runs the flags, and the other workers keep the configurations
+  that make the portfolio diverse. With the default flags nothing changes, because
+  they equal worker 0's settings, seed included. `--adaptive -j N` had the same gap
+  past the probe, and so did `solve_adaptive(config=..., jobs=N)` in the library.
+- **`--adaptive` ignored `--prep-rounds`.** Both preprocessors always ran 3 rounds.
+  `solve_adaptive` takes `prep_rounds` (default 3), and the CLI passes it on. A
+  negative count raises `ValueError`. Before, the native engine raised
+  `OverflowError` and Python silently ran no rounds.
+- `native/Cargo.toml` claimed Rust 1.70, but the locked pyo3 needs 1.85, so a
+  source build of `cdclkit-native` always needed 1.85. The manifest now says 1.85,
+  and CI builds with exactly that version.
+
+### Release
+
+- Neither PyPI job starts until every build has passed. `cdclkit` 0.2.0 reached
+  PyPI while its native wheels were still building. When those failed,
+  `cdclkit[native]==0.2.0` pinned a package that never appeared.
+- Each tag gets a GitHub Release entry. The notes are the tag's CHANGELOG section,
+  and `bench/baseline.json` is attached.
+
+### Known, and left open
+
+The soundness campaign's open findings (`campaign/findings/STATUS.md`) are unchanged:
+
+- The preprocessors are not bit-exact (preprocess-3, engines-2). Native has no
+  blocked clause elimination and visits clauses in another order, so the model,
+  conflict count and proof can depend on the engine once preprocessing runs. No
+  verdict has differed.
+- Proof streams differ between the engines on search-only routes (engines-3). Each
+  replays under all three flavours.
+- Preprocessed proofs delete a unit and then rely on it (preprocess-4, engines-1).
+  They check under dratify's rule, but not under a literal reading of DRAT deletion.
+- `mus --method core --verify` exits 1 on a correct core that is not minimal, as its
+  help says (mus-3). A docstring overstated a cost and now states it (mus-2).
+- `pyeq`'s `proof_steps` differs by engine, and both replay (modelling-14).
+  `Model.solutions()` without `project` repeats user-level solutions (modelling-15).
+  `differential_solve` varies nothing on a model with no cardinality constraint
+  (modelling-16). The docstrings say so.
+- The encodings-4 fix covers a constraint's own inputs but not a later
+  constraint's. A later constraint over a variable that an earlier one took as an
+  auxiliary still collides with it. Declare inputs with `new_var` before encoding
+  over them.
+
 ## [0.2.1] — 2026-11-09
 
 Use this release, not 0.2.0, if you want the native engine.
