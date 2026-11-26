@@ -291,6 +291,40 @@ class TestReleaseOrder(unittest.TestCase):
             with self.subTest(job=job):
                 self.assertEqual(self.needs[job], {"build"})
 
+    def test_the_release_entry_comes_after_both_publishes(self):
+        self.assertEqual(self.needs["github-release"], {"pypi", "pypi-native"})
+
+    def test_only_the_release_entry_can_write_to_the_repository(self):
+        text = _read(".github/workflows/release.yml")
+        self.assertRegex(text, r"(?m)^permissions:\n  contents: read$")
+        code = "\n".join(ln for ln in text.splitlines()
+                         if not ln.lstrip().startswith("#"))
+        jobs = re.split(r"(?m)^  (?=[A-Za-z0-9_-]+:\s*$)", code.split("\njobs:\n", 1)[1])
+        writers = [j.split(":", 1)[0] for j in jobs if "contents: write" in j]
+        self.assertEqual(writers, ["github-release"])
+
+    def test_the_notes_are_the_tag_s_changelog_section(self):
+        """The awk program in `build`, run on this CHANGELOG."""
+        import shutil
+        import subprocess
+
+        if shutil.which("awk") is None:
+            self.skipTest("no awk")
+        text = _read(".github/workflows/release.yml")
+        program = re.search(r"awk -v v=\"\$v\" '\n(.*?)\n\s*' CHANGELOG\.md", text,
+                            re.S).group(1)
+        import cdclkit
+
+        def section(v):
+            return subprocess.run(["awk", "-v", f"v={v}", program,
+                                   str(ROOT / "CHANGELOG.md")],
+                                  capture_output=True, text=True, check=True).stdout
+
+        notes = section(cdclkit.__version__)
+        self.assertTrue(notes.strip(), "no CHANGELOG section for this version")
+        self.assertNotIn("\n## [", notes)
+        self.assertEqual(section("0.0.0-never"), "")
+
 
 def _make_recipe(target: str) -> list[str]:
     """The recipe lines of a Makefile target, tabs stripped."""

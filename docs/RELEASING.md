@@ -8,11 +8,16 @@ The repository is public and Apache-2.0 (`LICENSE`), and publishing is
 automated. Pushing a `v*` tag runs `.github/workflows/release.yml`, which:
 
 1. runs the full test suite **on the tagged commit**, and fails if the tag does
-   not name the version being built;
-2. builds the pure-Python sdist and wheel, and publishes them to PyPI as
-   [`cdclkit`](https://pypi.org/project/cdclkit/);
-3. builds native wheels per platform plus an sdist, and publishes them as
-   [`cdclkit-native`](https://pypi.org/project/cdclkit-native/).
+   not name the version being built or `CHANGELOG.md` has no section for it;
+2. builds the pure-Python sdist and wheel, and native wheels per platform plus
+   an sdist;
+3. only once every build has passed, publishes them to PyPI as
+   [`cdclkit`](https://pypi.org/project/cdclkit/) and
+   [`cdclkit-native`](https://pypi.org/project/cdclkit-native/). Publishing
+   `cdclkit` while the wheels were still building is how 0.2.0 went out with
+   a `[native]` extra that could not install;
+4. creates the GitHub Release entry for the tag, with its CHANGELOG section as
+   the notes and `bench/baseline.json` attached.
 
 Both publish steps use **Trusted Publishing** over GitHub OIDC through the
 `pypi` environment. There is no token anywhere, and nothing to rotate.
@@ -113,7 +118,9 @@ nothing else. `pipeline`, `portfolio` and `native` are internal.
 
 ## 3. Changelog
 
-Move `[Unreleased]` to the new version with today's date. Write for someone
+Move `[Unreleased]` to the new version with today's date, as
+`## [X.Y.Z] — YYYY-MM-DD`: the release job takes everything under that heading,
+up to the next `## [`, as the GitHub Release notes. Write for someone
 deciding whether to upgrade, not for someone reading a diff: what breaks, what
 is fixed, and what is still not there. The "Known limitations" section is not
 optional — the platforms that are untested and the things the tool cannot do
@@ -160,12 +167,12 @@ network error), open the tag's run and use **Re-run failed jobs**. That keeps
 the tag ref, so the environment rule and the version check both still apply.
 There is deliberately no way to start a release by hand.
 
-Attach the artefacts to a GitHub release once the workflow is green:
-
-```bash
-gh release create v0.1.3 --notes-file <(sed -n '/## \[0.1.3\]/,/## \[0/p' CHANGELOG.md) \
-    bench/baseline.json
-```
+The last job, `github-release`, creates the GitHub Release entry once both
+packages are on PyPI. Its notes are the tag's CHANGELOG section, which `build`
+extracts and checks before anything is published, and it attaches
+`bench/baseline.json`. It is the only job with `contents: write`. If it fails
+after both publishes succeeded, re-run it alone; it leaves an existing entry
+as it is.
 
 `bench/baseline.json` goes in deliberately. It is the conflict-count reference
 the benchmark harness checks against, and attaching it makes every performance
