@@ -359,6 +359,12 @@ class TestMakeTargets(unittest.TestCase):
         self.assertNotIn("/tmp", " ".join(_make_recipe("smoke")))
         self.assertIn(".smoke/", _read(".gitignore").splitlines())
 
+    def test_dist_looks_for_build_outside_the_checkout(self):
+        """From the repository root, the build/ directory setuptools leaves
+        imports as a namespace package and passes `import build`."""
+        check = next(ln for ln in _make_recipe("dist") if "import build" in ln)
+        self.assertIn("$(VENV_PY) -I -c 'import build'", check)
+
 
 class TestLicenceConsistency(unittest.TestCase):
     """The tree is Apache-2.0; every place that states a licence must agree.

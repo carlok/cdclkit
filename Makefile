@@ -120,8 +120,11 @@ demo:
 lint:
 	$(PYTHON) -m compileall -q cdclkit tests examples bench
 
+# -I keeps the current directory off sys.path. Without it, the build/ directory
+# setuptools leaves in the checkout imports as a namespace package, the check
+# passes with no `build` installed, and `-m build` then fails.
 dist: venv
-	@$(VENV_PY) -c 'import build' 2>/dev/null || .venv/bin/pip install -q build hatchling
+	@$(VENV_PY) -I -c 'import build' 2>/dev/null || .venv/bin/pip install -q build hatchling
 	rm -rf dist
 	$(VENV_PY) -m build --outdir dist .
 	cd native && ../.venv/bin/maturin build --release --out ../dist
