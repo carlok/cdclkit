@@ -67,8 +67,13 @@ jobs:
           name: dist
           path: dist/
 
+  # Nothing is published until everything is built. pypi used to need only
+  # `build`, so cdclkit 0.2.0 went out while its wheels were still building;
+  # when they failed, `cdclkit[native]==0.2.0` named a package that did not
+  # exist. Both publish jobs now wait for every build, and `build` (the tests
+  # and the tag check) gates the native half too.
   pypi:
-    needs: build
+    needs: [build, wheels, native-sdist]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
@@ -105,6 +110,7 @@ jobs:
           # holding up a release whose other four builds had finished. abi3 +
           # cross-compilation needs no Intel host.
           - { os: macos-latest,  target: x86_64 }
+    needs: build
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -122,6 +128,7 @@ jobs:
           path: dist/
 
   native-sdist:
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -135,7 +142,7 @@ jobs:
           path: dist/
 
   pypi-native:
-    needs: [wheels, native-sdist]
+    needs: [build, wheels, native-sdist]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:

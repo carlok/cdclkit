@@ -247,6 +247,51 @@ class TestWorkflowsAreWellFormed(unittest.TestCase):
                         f"that lost its '# '")
 
 
+def _job_needs(workflow: str) -> dict[str, set[str]]:
+    """Each job's `needs`, read without a YAML parser for the reason above."""
+    jobs: dict[str, set[str]] = {}
+    in_jobs = False
+    job = None
+    for line in workflow.splitlines():
+        if line and line[0] not in " \t#":
+            in_jobs = line.startswith("jobs:")
+            continue
+        if not in_jobs:
+            continue
+        m = re.match(r"^  ([A-Za-z0-9_-]+):\s*$", line)
+        if m:
+            job = m.group(1)
+            jobs[job] = set()
+            continue
+        m = re.match(r"^    needs:\s*(.+?)\s*$", line)
+        if m and job is not None:
+            jobs[job] = {n.strip() for n in m.group(1).strip("[]").split(",")}
+    return jobs
+
+
+class TestReleaseOrder(unittest.TestCase):
+    """No publish job starts before every artefact of the release is built.
+
+    pypi needed only `build`, so cdclkit 0.2.0 reached PyPI while the native
+    wheels were still building. They failed, and `cdclkit[native]==0.2.0` then
+    pinned a cdclkit-native that was never published.
+    """
+
+    def setUp(self):
+        self.needs = _job_needs(_read(".github/workflows/release.yml"))
+
+    def test_both_publish_jobs_wait_for_every_build(self):
+        for job in ("pypi", "pypi-native"):
+            with self.subTest(job=job):
+                self.assertEqual(self.needs[job],
+                                 {"build", "wheels", "native-sdist"})
+
+    def test_the_native_builds_wait_for_the_tests_and_the_tag_check(self):
+        for job in ("wheels", "native-sdist"):
+            with self.subTest(job=job):
+                self.assertEqual(self.needs[job], {"build"})
+
+
 class TestLicenceConsistency(unittest.TestCase):
     """The tree is Apache-2.0; every place that states a licence must agree.
 
