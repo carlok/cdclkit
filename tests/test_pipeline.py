@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import random
 import unittest
+from unittest import mock
 
 from cdclkit import native
 from cdclkit.brute import exhaustive_solve
@@ -140,6 +141,74 @@ class TestPolicy(unittest.TestCase):
         self.assertEqual(r.clauses_before, f.nclauses)
         self.assertGreater(r.clauses_before, 0)
         self.assertGreater(r.clauses_after, 0)
+
+
+class TestPortfolioStage(unittest.TestCase):
+    """`jobs > 1` past the probe used to run `default_configs`, so the config
+    passed to solve_adaptive reached the sequential solve and not this one."""
+
+    def test_worker_0_runs_the_given_config(self):
+        from cdclkit import portfolio
+        from cdclkit.solver import Config
+
+        cfg = Config(restart="glucose", rnd_seed=5)
+        for engine in ENGINES:
+            with self.subTest(engine=engine), mock.patch.object(
+                    portfolio, "solve_portfolio",
+                    wraps=portfolio.solve_portfolio) as spy:
+                r = solve_adaptive(php(5), engine=engine, config=cfg, jobs=2,
+                                   always_preprocess=True)
+                self.assertFalse(r.sat)
+                cfgs = spy.call_args.kwargs["configs"]
+                self.assertEqual(cfgs[0].as_dict(), cfg.as_dict())
+                self.assertEqual(
+                    [c.as_dict() for c in cfgs[1:]],
+                    [c.as_dict() for c in portfolio.default_configs(2)[1:]])
+
+    def test_no_config_is_the_plain_portfolio(self):
+        from cdclkit import portfolio
+
+        with mock.patch.object(portfolio, "solve_portfolio",
+                               wraps=portfolio.solve_portfolio) as spy:
+            solve_adaptive(php(5), engine="python", jobs=2,
+                           always_preprocess=True)
+        self.assertEqual(
+            [c.as_dict() for c in spy.call_args.kwargs["configs"]],
+            [c.as_dict() for c in portfolio.default_configs(2)])
+
+
+class TestPrepRounds(unittest.TestCase):
+    """`--adaptive --prep-rounds N` reached neither preprocessor: both ran 3."""
+
+    def test_the_count_reaches_the_preprocessor(self):
+        from cdclkit import pipeline
+
+        for engine in ENGINES:
+            for rounds in (1, 3):
+                with self.subTest(engine=engine, rounds=rounds), \
+                        mock.patch.object(pipeline, "_preprocess",
+                                          wraps=pipeline._preprocess) as spy:
+                    r = solve_adaptive(php(5), engine=engine,
+                                       always_preprocess=True,
+                                       prep_rounds=rounds)
+                    self.assertFalse(r.sat)
+                    self.assertEqual(spy.call_args.kwargs["rounds"], rounds)
+
+    def test_the_default_is_three(self):
+        from cdclkit import pipeline
+
+        with mock.patch.object(pipeline, "_preprocess",
+                               wraps=pipeline._preprocess) as spy:
+            solve_adaptive(php(4), engine="python", always_preprocess=True)
+        self.assertEqual(spy.call_args.kwargs["rounds"], 3)
+
+    def test_a_negative_count_is_refused(self):
+        """Native raised OverflowError on the conversion, and Python ran no
+        rounds without saying so."""
+        for engine in ENGINES:
+            with self.subTest(engine=engine), \
+                    self.assertRaisesRegex(ValueError, "prep_rounds"):
+                solve_adaptive(php(4), engine=engine, prep_rounds=-1)
 
 
 @unittest.skipUnless(native.available(), "native engine not built")

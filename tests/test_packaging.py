@@ -247,6 +247,125 @@ class TestWorkflowsAreWellFormed(unittest.TestCase):
                         f"that lost its '# '")
 
 
+def _job_needs(workflow: str) -> dict[str, set[str]]:
+    """Each job's `needs`, read without a YAML parser for the reason above."""
+    jobs: dict[str, set[str]] = {}
+    in_jobs = False
+    job = None
+    for line in workflow.splitlines():
+        if line and line[0] not in " \t#":
+            in_jobs = line.startswith("jobs:")
+            continue
+        if not in_jobs:
+            continue
+        m = re.match(r"^  ([A-Za-z0-9_-]+):\s*$", line)
+        if m:
+            job = m.group(1)
+            jobs[job] = set()
+            continue
+        m = re.match(r"^    needs:\s*(.+?)\s*$", line)
+        if m and job is not None:
+            jobs[job] = {n.strip() for n in m.group(1).strip("[]").split(",")}
+    return jobs
+
+
+class TestReleaseOrder(unittest.TestCase):
+    """No publish job starts before every artefact of the release is built.
+
+    pypi needed only `build`, so cdclkit 0.2.0 reached PyPI while the native
+    wheels were still building. They failed, and `cdclkit[native]==0.2.0` then
+    pinned a cdclkit-native that was never published.
+    """
+
+    def setUp(self):
+        self.needs = _job_needs(_read(".github/workflows/release.yml"))
+
+    def test_both_publish_jobs_wait_for_every_build(self):
+        for job in ("pypi", "pypi-native"):
+            with self.subTest(job=job):
+                self.assertEqual(self.needs[job],
+                                 {"build", "wheels", "native-sdist"})
+
+    def test_the_native_builds_wait_for_the_tests_and_the_tag_check(self):
+        for job in ("wheels", "native-sdist"):
+            with self.subTest(job=job):
+                self.assertEqual(self.needs[job], {"build"})
+
+    def test_the_release_entry_comes_after_both_publishes(self):
+        self.assertEqual(self.needs["github-release"], {"pypi", "pypi-native"})
+
+    def test_only_the_release_entry_can_write_to_the_repository(self):
+        text = _read(".github/workflows/release.yml")
+        self.assertRegex(text, r"(?m)^permissions:\n  contents: read$")
+        code = "\n".join(ln for ln in text.splitlines()
+                         if not ln.lstrip().startswith("#"))
+        jobs = re.split(r"(?m)^  (?=[A-Za-z0-9_-]+:\s*$)", code.split("\njobs:\n", 1)[1])
+        writers = [j.split(":", 1)[0] for j in jobs if "contents: write" in j]
+        self.assertEqual(writers, ["github-release"])
+
+    def test_the_notes_are_the_tag_s_changelog_section(self):
+        """The awk program in `build`, run on this CHANGELOG."""
+        import shutil
+        import subprocess
+
+        if shutil.which("awk") is None:
+            self.skipTest("no awk")
+        text = _read(".github/workflows/release.yml")
+        program = re.search(r"awk -v v=\"\$v\" '\n(.*?)\n\s*' CHANGELOG\.md", text,
+                            re.S).group(1)
+        import cdclkit
+
+        def section(v):
+            return subprocess.run(["awk", "-v", f"v={v}", program,
+                                   str(ROOT / "CHANGELOG.md")],
+                                  capture_output=True, text=True, check=True).stdout
+
+        notes = section(cdclkit.__version__)
+        self.assertTrue(notes.strip(), "no CHANGELOG section for this version")
+        self.assertNotIn("\n## [", notes)
+        self.assertEqual(section("0.0.0-never"), "")
+
+
+def _make_recipe(target: str) -> list[str]:
+    """The recipe lines of a Makefile target, tabs stripped."""
+    lines = _read("Makefile").splitlines()
+    start = next(i for i, ln in enumerate(lines)
+                 if re.match(rf"^{re.escape(target)}:", ln))
+    out = []
+    for ln in lines[start + 1:]:
+        if ln.startswith("\t"):
+            out.append(ln.strip())
+        elif ln.strip() and not ln.startswith("#"):
+            break
+    return out
+
+
+class TestMakeTargets(unittest.TestCase):
+    """`make smoke` and `make gate` as the release checklist relies on them."""
+
+    def test_the_gate_checks_the_coverage_floor_as_ci_does(self):
+        self.assertIn("$(PYTHON) tests/coverage_report.py", _make_recipe("gate"))
+
+    def test_smoke_installs_dratify_before_the_offline_install(self):
+        """dist/ has no dratify, so the --no-index install could never resolve
+        cdclkit's one dependency and the target failed on every run."""
+        recipe = _make_recipe("smoke")
+        dratify = next(i for i, ln in enumerate(recipe)
+                       if ln.endswith("pip install -q dratify"))
+        offline = next(i for i, ln in enumerate(recipe) if "--no-index" in ln)
+        self.assertLess(dratify, offline)
+
+    def test_smoke_writes_inside_its_own_directory(self):
+        self.assertNotIn("/tmp", " ".join(_make_recipe("smoke")))
+        self.assertIn(".smoke/", _read(".gitignore").splitlines())
+
+    def test_dist_looks_for_build_outside_the_checkout(self):
+        """From the repository root, the build/ directory setuptools leaves
+        imports as a namespace package and passes `import build`."""
+        check = next(ln for ln in _make_recipe("dist") if "import build" in ln)
+        self.assertIn("$(VENV_PY) -I -c 'import build'", check)
+
+
 class TestLicenceConsistency(unittest.TestCase):
     """The tree is Apache-2.0; every place that states a licence must agree.
 

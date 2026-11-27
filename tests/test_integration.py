@@ -13,10 +13,12 @@ import contextlib
 import io
 import os
 import runpy
+import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 from cdclkit.cli import (EXIT_BAD_PROOF, EXIT_ERROR, EXIT_SAT, EXIT_UNKNOWN,
                        EXIT_UNSAT, main)
@@ -35,6 +37,8 @@ class TestCLI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp = tempfile.mkdtemp(prefix="cdclkit-test-")
+        # registered before anything else can fail, so it runs either way
+        cls.addClassCleanup(shutil.rmtree, cls.tmp, ignore_errors=True)
         cls.php = os.path.join(cls.tmp, "php.cnf")
         cls.queens = os.path.join(cls.tmp, "queens.cnf")
         cls.rand = os.path.join(cls.tmp, "rand.cnf")
@@ -247,6 +251,53 @@ class TestCLI(unittest.TestCase):
         par, _ = run_cli("solve", self.rand, "--no-model", "--jobs", "2")
         self.assertEqual(seq, par, "the portfolio disagreed with the sequential solve")
 
+    def test_parallel_solve_passes_the_search_flags_to_worker_0(self):
+        """`-j` accepted --restart, --seed and the rest and then ran
+        `default_configs`, so none of them reached a worker."""
+        from cdclkit import cli
+        from cdclkit.portfolio import default_configs
+        from cdclkit.solver import Config
+
+        with mock.patch.object(cli, "solve_portfolio",
+                               wraps=cli.solve_portfolio) as spy:
+            code, _ = run_cli("solve", self.php, "--no-model", "-j", "2",
+                              "--restart", "glucose", "--seed", "5")
+        self.assertEqual(code, EXIT_UNSAT)
+        cfgs = spy.call_args.kwargs["configs"]
+        self.assertEqual(len(cfgs), 2)
+        self.assertEqual(cfgs[0].as_dict(),
+                         Config(restart="glucose", rnd_seed=5).as_dict())
+        self.assertEqual(cfgs[1].as_dict(), default_configs(2)[1].as_dict())
+
+    def test_parallel_solve_without_search_flags_is_unchanged(self):
+        from cdclkit import cli
+        from cdclkit.portfolio import default_configs
+
+        with mock.patch.object(cli, "solve_portfolio",
+                               wraps=cli.solve_portfolio) as spy:
+            code, _ = run_cli("solve", self.php, "--no-model", "-j", "2")
+        self.assertEqual(code, EXIT_UNSAT)
+        self.assertEqual([c.as_dict() for c in spy.call_args.kwargs["configs"]],
+                         [c.as_dict() for c in default_configs(2)])
+
+    def test_adaptive_passes_prep_rounds_on(self):
+        from cdclkit import pipeline
+
+        with mock.patch.object(pipeline, "solve_adaptive",
+                               wraps=pipeline.solve_adaptive) as spy:
+            code, _ = run_cli("solve", self.php, "--no-model", "--adaptive",
+                              "--prep-rounds", "1", "--self-check")
+        self.assertEqual(code, EXIT_UNSAT)
+        self.assertEqual(spy.call_args.kwargs["prep_rounds"], 1)
+
+    def test_adaptive_refuses_negative_prep_rounds(self):
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            code, _ = run_cli("solve", self.php, "--no-model", "--adaptive",
+                              "--prep-rounds", "-1")
+        self.assertEqual(code, EXIT_ERROR)
+        self.assertIn("prep_rounds", err.getvalue())
+
     def test_module_entry_point(self):
         proc = subprocess.run(
             [sys.executable, "-m", "cdclkit", "stats", self.rand],
@@ -254,6 +305,20 @@ class TestCLI(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, EXIT_UNKNOWN)
         self.assertIn("clauses", proc.stdout)
+
+
+class TestNoLitter(unittest.TestCase):
+    def test_the_cli_fixture_removes_its_directory(self):
+        """TestCLI left a cdclkit-test-* directory in the temp dir on every
+        run."""
+        with tempfile.TemporaryDirectory() as tmp:
+            env = dict(os.environ, TMPDIR=tmp)
+            proc = subprocess.run(
+                [sys.executable, "-m", "unittest",
+                 "tests.test_integration.TestCLI.test_generators_write_valid_dimacs"],
+                capture_output=True, text=True, cwd=ROOT, env=env)
+            self.assertEqual(proc.returncode, 0, proc.stderr[-800:])
+            self.assertEqual(os.listdir(tmp), [])
 
 
 class TestExamples(unittest.TestCase):

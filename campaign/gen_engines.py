@@ -1415,8 +1415,7 @@ def main(argv=None):
                 {"id": k, "severity": v[0], "summary": v[1], "status": status.state(k)}
                 for k, v in sorted(FINDINGS.items())],
             "not_checked": NOT_CHECKED,
-            "native_build": "cdclkit_native 0.1.7 embedding this checkout's dratify/rust "
-                            "(0.1.10), not the crates.io release of the same version",
+            "native_build": _native_build(),
         }
         os.makedirs(os.path.join(HERE, "results"), exist_ok=True)
         with open(os.path.join(HERE, "results", "engines.json"), "w", encoding="utf-8") as fh:
@@ -1425,6 +1424,29 @@ def main(argv=None):
     if unexplained or regressions:
         return 1
     return 2 if missing else 0
+
+
+def _dratify_crate() -> str:
+    """The dratify crate native/Cargo.lock pins, and where it comes from.
+
+    These strings were literals naming cdclkit-native 0.1.7 and dratify 0.1.10,
+    true of the campaign's own build and of no later one.
+    """
+    try:
+        with open(os.path.join(ROOT, "native", "Cargo.lock"), encoding="utf-8") as fh:
+            lock = fh.read()
+    except OSError:
+        return "unknown (no native/Cargo.lock)"
+    m = re.search(r'\nname = "dratify"\nversion = "([^"]+)"\n(?:source = "([^"]+)")?', lock)
+    if not m:
+        return "unknown (not in native/Cargo.lock)"
+    where = "crates.io" if (m.group(2) or "").startswith("registry+") else "a local path"
+    return f"{m.group(1)} from {where}"
+
+
+def _native_build() -> str:
+    return (f"cdclkit-native {native.version()}, whose Cargo.lock pins the dratify "
+            f"crate {_dratify_crate()}; dratify {dratify.__version__} in Python")
 
 
 NOT_CHECKED = [
@@ -1444,7 +1466,8 @@ NOT_CHECKED = [
     "(no threaded portfolio in the module) is not exercised.",
     "An `--adaptive` run stopped by a deadline in the CLI: the CLI passes none.",
     "`luby_base=0` and `walk_interval=0`, which are not meaningful configurations.",
-    "The crates.io dratify 0.1.10: this build embeds the checkout's dratify/rust.",
+    f"Any dratify but this run's: {dratify.__version__} in Python, and the crate "
+    f"{_dratify_crate()} that native/Cargo.lock pins.",
     "Counters the native binding does not expose (walks, walk_flips, simplifications, "
     "removed_clauses, removed_lits) are read on Python to prove reach, and not compared.",
     "`CDCLKIT_ENGINE=native` without the build: it is built here, so that error is not reached.",

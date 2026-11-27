@@ -7,9 +7,8 @@ Tiny formulas and brute force, an oracle that shares no code with this repositor
 **Seven Critical defects were found and fixed, and released in 0.2.0:**
 [GHSA-82pg-jv96-v48m](https://github.com/carlok/cdclkit/security/advisories/GHSA-82pg-jv96-v48m). Use
 0.2.1 with the native engine: `cdclkit-native` 0.2.0 was never published, because GitHub had retired
-its macOS runner. The commit hashes below are this branch's; `main` holds the same changes under its
-own. Since Critical
-findings appeared, no README sentence is proposed.
+its macOS runner. The commit hashes below are all on `main`. Since Critical findings appeared, no
+README sentence is proposed.
 
 ## Corners
 
@@ -38,7 +37,7 @@ campaign tests 47; `cargo test` 26; clippy clean. Without the native engine, and
 dratify 0.1.10, 446 run with 56 skipped; the only 2 failures came from the partial source export used
 for that run, which left out `LICENSE` and `.github/`. All files parse under the Python 3.10 grammar;
 3.10 itself is not installed here. The native engine in these runs was built against dratify's
-`campaign/soundness` checkout.
+`campaign/soundness` checkout, which is now on dratify's `main` and was released as 0.1.11.
 
 ## Findings
 
@@ -102,15 +101,15 @@ from the command line is Critical, and the Bug line covers a library caller driv
 | modelling-14, -15, -16 | Note | `proof_steps` differs by engine, and both replay; `solutions()` without `project` repeats solutions; `differential_solve` varies nothing with no cardinality constraint. Documented. |
 
 Also not fixed: encodings-4 covers a constraint's own inputs, not a later constraint's; `(x == 3) and
-(y == 4)` on `IntVar` literals cannot be refused; `-j` still drops search flags; `--adaptive` still
-ignores `--prep-rounds`. Details and the status logic: `campaign/findings/STATUS.md`,
-`campaign/status.py`.
+(y == 4)` on `IntVar` literals cannot be refused. `-j` dropping the search flags and `--adaptive`
+ignoring `--prep-rounds` were fixed after the campaign, in 0.2.2. Details and the status logic:
+`campaign/findings/STATUS.md`, `campaign/status.py`.
 
 **The proofs, under dratify's reading of deletion.** On 2,500 random formulas of up to 9 variables,
 2,115 of them unsatisfiable, on four routes: all 2,115 refutations on each route pass dratify's
-`campaign/soundness` branch on Python and Rust. On the preprocessed routes 926 fail the `specified`
-flavour. Only 3 formulas needed a deletion actually ignored; the rest are refuted by propagation at the
-root, which dratify notices before reading the proof.
+`campaign/soundness` branch, since released as dratify 0.1.11, on Python and Rust. On the preprocessed
+routes 926 fail the `specified` flavour. Only 3 formulas needed a deletion actually ignored; the rest
+are refuted by propagation at the root, which dratify notices before reading the proof.
 
 ## Behaviour that changes
 

@@ -21,9 +21,13 @@ exception a caller cannot distinguish from a verdict. Note that
 `CNF.header_mismatch` exists because a malformed file once parsed to half its
 clauses and every solver agreed on the wrong answer.
 
-**Also wanted: a divergence between the Python and Rust engines.** They are
-required to be bit-exact — identical conflicts, decisions and propagations. A
-case where they differ is a real finding even if both answers are correct.
+**Also wanted: a divergence between the Python and Rust engines.** Their
+searches are required to be bit-exact — identical conflicts, decisions and
+propagations. A search where they differ is a real finding even if both
+answers are correct. Their preprocessors are not bit-exact: native has no
+blocked clause elimination and visits clauses in another order, so after
+preprocessing a different model, conflict count or proof is expected. A
+different verdict is a finding anywhere.
 
 **Not a vulnerability:** being slow; running out of memory on a genuinely hard
 instance; `pyeq` limitations, which are documented and experimental.

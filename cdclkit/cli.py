@@ -36,7 +36,7 @@ from dratify.cnf import CNF, parse_dimacs_file, write_dimacs
 from .encodings import Encoder, optimise
 from dratify.lits import from_dimacs, mk_lit, to_dimacs
 from .mus import MUSExtractor
-from .portfolio import performance_cores, solve_portfolio
+from .portfolio import configs_with_base, performance_cores, solve_portfolio
 from .preprocess import Preprocessor
 from dratify.proof import MemoryProof, ProofWriter, check_proof, parse_proof
 from .solver import Config, Solver
@@ -147,6 +147,7 @@ def cmd_solve(args) -> int:
             jobs=jobs,
             proof=proof_sink,
             max_conflicts=args.conflicts,
+            prep_rounds=args.prep_rounds,
         )
         print(pr.report())
         print(f"c {pr.conflicts} conflicts in {pr.seconds:.3f}s")
@@ -169,7 +170,9 @@ def cmd_solve(args) -> int:
         engine = _pick_engine()
         if engine is None:
             return EXIT_ERROR
+        # Worker 0 runs the search flags; the others keep their diversity.
         pr = solve_portfolio(f, jobs=jobs, engine=engine,
+                             configs=configs_with_base(cfg, jobs),
                              want_proof=proof_sink is not None,
                              max_conflicts=args.conflicts)
         if not pr.finished:
@@ -499,9 +502,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--jobs", "-j", type=int, default=None,
                    metavar="N",
                    help=f"run a parallel portfolio of N differently-configured "
-                        f"solvers and take the first answer (this machine has "
-                        f"{performance_cores()} performance cores; more workers "
-                        f"than that is usually slower)")
+                        f"solvers and take the first answer. Worker 0 uses the "
+                        f"search flags above; the others use their own settings "
+                        f"(this machine has {performance_cores()} performance "
+                        f"cores; more workers than that is usually slower)")
     s.set_defaults(func=cmd_solve)
 
     c = sub.add_parser("check", help="verify a DRAT proof")

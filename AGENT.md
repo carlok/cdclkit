@@ -39,7 +39,7 @@ hostnames, or usernames. Keep user-facing docs and comments **general** (no
 “on my laptop”, no private URLs).
 
 For a substantial PR, `make gate` matches much of what CI runs (tests,
-baselines, agreement with a reference solver). CI also runs lint, examples,
+coverage, baselines, agreement with a reference solver). CI also runs lint, examples,
 packaging, and the native matrix — see `.github/workflows/ci.yml`.
 
 ## Scope

@@ -31,6 +31,7 @@ from dratify.cnf import CNF
 from dratify.lits import mk_lit
 from cdclkit.portfolio import (
     PortfolioResult,
+    configs_with_base,
     default_configs,
     in_worker,
     performance_cores,
@@ -303,6 +304,34 @@ class TestNonInterference(unittest.TestCase):
         default = Config()
         for key in ("restart", "ccmin", "phase_saving", "var_decay"):
             self.assertEqual(getattr(cfgs[0], key), getattr(default, key))
+
+
+class TestConfigsWithBase(unittest.TestCase):
+    """Worker 0 takes the caller's search settings and nothing else moves."""
+
+    def test_the_plain_default_changes_nothing(self):
+        for n in (1, 2, 5, 13):
+            with self.subTest(n=n):
+                self.assertEqual(
+                    [c.as_dict() for c in configs_with_base(Config(), n)],
+                    [c.as_dict() for c in default_configs(n)])
+
+    def test_worker_0_runs_the_base_and_the_rest_keep_their_recipes(self):
+        base = Config(restart="none", rnd_seed=5, var_decay=0.9)
+        cfgs = configs_with_base(base, 5)
+        self.assertEqual(cfgs[0].as_dict(), base.as_dict())
+        self.assertEqual([c.as_dict() for c in cfgs[1:]],
+                         [c.as_dict() for c in default_configs(5)[1:]])
+
+    def test_the_base_is_copied(self):
+        base = Config(restart="none")
+        cfgs = configs_with_base(base, 2)
+        self.assertIsNot(cfgs[0], base)
+        base.restart = "glucose"
+        self.assertEqual(cfgs[0].restart, "none")
+
+    def test_no_workers_means_no_configs(self):
+        self.assertEqual(configs_with_base(Config(), 0), [])
 
 
 class TestConfiguration(unittest.TestCase):
